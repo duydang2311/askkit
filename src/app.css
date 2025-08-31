@@ -1,0 +1,66 @@
+@import 'tailwindcss';
+
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+
+@theme {
+    --color-base: oklch(96.42% 0 116.2);
+    --color-base-fg: oklch(17% 0.0038 164.54);
+    --color-base-fg-muted: oklch(57% 0.0038 164.54);
+    --color-base-border: oklch(86.42% 0 116.2);
+
+    --color-primary: oklch(52.36% 0.1748 255.4);
+
+    --default-font-family: 'Inter Variable', ui-sans-serif, system-ui, sans-serif,
+        'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
+        'Noto Color Emoji';
+}
+
+@layer base {
+    :root {
+        @variant dark {
+            --color-base: oklch(24.35% 0 116.2);
+            --color-base-fg: oklch(100% 0 116.2);
+            --color-base-fg-muted: oklch(60% 0 116.2);
+            --color-base-border: oklch(32.35% 0 116.2);
+
+            --color-primary: oklch(64.94% 0.1928 251.89);
+        }
+    }
+}
+
+@layer base {
+    :root {
+        overflow: hidden;
+        background-color: transparent;
+        color: var(--color-base-fg);
+        cursor: default;
+        user-select: none;
+        font-size: 16px;
+        line-height: 1.5rem;
+        font-weight: 400;
+
+        font-synthesis: none;
+        text-rendering: optimizeLegibility;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        -webkit-text-size-adjust: 100%;
+    }
+
+    body {
+        background-color: transparent;
+    }
+
+    .tiptap p.is-editor-empty:first-child::before {
+        color: var(--color-base-fg-muted);
+        content: attr(data-placeholder);
+        float: left;
+        height: 0;
+        pointer-events: none;
+    }
+
+    input, div[contenteditable] {
+        cursor: text;
+        user-select: auto;
+    }
+
+}
