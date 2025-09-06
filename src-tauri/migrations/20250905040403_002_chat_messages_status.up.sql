@@ -1,0 +1,1 @@
+alter table chat_messages add column status text not null default 'completed' check (status in ('pending', 'completed'));

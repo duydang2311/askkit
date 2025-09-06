@@ -1,7 +1,6 @@
 <script lang="ts">
     import { invoke } from '@tauri-apps/api/core';
     import { LogicalSize } from '@tauri-apps/api/dpi';
-    import { listen } from '@tauri-apps/api/event';
     import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
     import { Editor, Extension } from '@tiptap/core';
     import CodeBlock from '@tiptap/extension-code-block';
@@ -10,15 +9,24 @@
     import Paragraph from '@tiptap/extension-paragraph';
     import Text from '@tiptap/extension-text';
     import { Placeholder } from '@tiptap/extensions';
-    import { onMount } from 'svelte';
+    import DOMPurify from 'dompurify';
+    import { marked } from 'marked';
+    import { onMount, tick } from 'svelte';
+    import { on } from 'svelte/events';
     import { Markdown } from 'tiptap-markdown';
     import PaperAirplane from '~icons/heroicons/paper-airplane-16-solid';
+    import { onEvent } from '../lib/common/tauri';
     import Greetings from './Greetings.svelte';
 
     const editorBaseClass =
         'w-screen max-h-64 overflow-auto pl-6 pr-18 py-4 focus:outline-none';
     let editor = $state.raw<Editor>();
     let containerEl = $state.raw<HTMLElement>();
+    let chatEl = $state.raw<HTMLElement>();
+    let chat = $state.raw<{
+        id: string;
+        messages: { id: string; role: string; content: string }[];
+    } | null>(null);
 
     const hasMultilines = (editor: Editor) => {
         if (editor.state.doc.content.childCount > 1) {
@@ -35,24 +43,123 @@
     };
 
     const submit = async () => {
-        const chatId = await invoke<string>('submit_agent_prompt', {
-            content: editor?.getText(),
+        if (!editor) {
+            return;
+        }
+        const content = editor.getText() ?? '';
+        editor.commands.clearContent();
+        if (!chat) {
+            chat = {
+                id: await invoke<string>('create_chat', {
+                    content,
+                }),
+                messages: [],
+            };
+        }
+        await invoke<string>('send_chat_message', {
+            content,
+            chatId: chat.id,
         });
-      console.log('chatId', chatId);
     };
 
-    let answer = '';
-    onMount(() => {
-        const unlistenFn = listen('agent-response-chunk', (e) => {
-            console.log('response-chunk', e);
-            answer =
-                answer +
-                JSON.parse(e.payload).candidates[0].content.parts[0].text.replace(/\\\write\n/g, '\n');
-            editor?.commands.setContent(answer);
-        });
-        return () => {
-            unlistenFn.then((unlisten) => unlisten());
+    onEvent('chat_message_response_chunk', (e) => {
+        // TODO: validate
+        const data = e.payload as { chatId: string; id: string; text: string };
+        if (chat?.id !== data.chatId) {
+            return;
+        }
+
+        chat = {
+            ...chat,
+            messages: chat.messages.map((a) =>
+                a.id === data.id
+                    ? {
+                          ...a,
+                          content: a.content + data.text,
+                      }
+                    : a
+            ),
         };
+    });
+
+    onEvent('chat_message_created', (e) => {
+        // TODO: validate
+        const data = e.payload as {
+            chatId: string;
+            id: string;
+            role: string;
+            content: string;
+        };
+        if (chat?.id !== data.chatId) {
+            return;
+        }
+
+        chat = {
+            ...chat,
+            messages: [
+                ...chat.messages,
+                {
+                    ...data,
+                    content: data.content,
+                },
+            ],
+        };
+
+        if (chatEl) {
+            const el = chatEl;
+            const gapPx =
+                (
+                    document.documentElement
+                        .computedStyleMap()
+                        .get('font-size') as CSSUnitValue | undefined
+                )?.value ?? 16;
+            const secondLastEl = el.lastElementChild as HTMLElement | undefined;
+            tick().finally(() => {
+                if (el.scrollHeight <= el.clientHeight) {
+                    return;
+                }
+                const lastEl = el.lastElementChild as HTMLElement;
+                if (lastEl) {
+                    lastEl.style.minHeight = el.clientHeight - 2 * gapPx + 'px';
+                    if (secondLastEl) {
+                        secondLastEl.style.minHeight = '';
+                    }
+                    requestAnimationFrame(() => {
+                        if (data.role === 'user') {
+                            el.scrollTo({
+                                top: el.scrollHeight,
+                                behavior: 'smooth',
+                            });
+                        } else {
+                            let lastUserRoleEl: HTMLElement | null = lastEl;
+                            while (
+                                lastUserRoleEl != null &&
+                                lastUserRoleEl.getAttribute('data-role') !==
+                                    'user'
+                            ) {
+                                lastUserRoleEl =
+                                    lastUserRoleEl.previousElementSibling as HTMLElement | null;
+                            }
+                            el.scrollTo({
+                                top:
+                                    (lastUserRoleEl ?? lastEl).offsetTop -
+                                    el.offsetTop -
+                                    gapPx,
+                                behavior: 'smooth',
+                            });
+                        }
+                    });
+                }
+            });
+        }
+    });
+
+    onMount(() => {
+        return on(window, 'keyup', async (e) => {
+            if (e.key === 'Escape') {
+                await invoke('destroy_launcher_window');
+            }
+        });
     });
 </script>
 
@@ -63,6 +170,37 @@
         <Greetings />
         <p class="text-primary font-bold tracking-tight">askkit</p>
     </div>
+    {#if chat}
+        <ol
+            bind:this={chatEl}
+            class="h-128 border-b border-b-base-border px-6 py-4 overflow-auto space-y-4 custom-scrollbar"
+            {@attach () => {
+                
+                if (!containerEl) {
+                    return;
+                }
+                getCurrentWebviewWindow().setSize(
+                    new LogicalSize(
+                        containerEl.scrollWidth,
+                        containerEl.scrollHeight
+                    )
+                );
+            }}
+        >
+            {#each chat.messages as msg (msg.id)}
+                {#await marked(msg.content) then html}
+                    <li data-role={msg.role}>
+                        <div
+                            data-role={msg.role}
+                            class="data-[role=user]:bg-base-light p-2 rounded-md w-fit max-w-[80ch] data-[role=user]:ml-auto wrap-anywhere prose"
+                        >
+                            {@html DOMPurify.sanitize(html)}
+                        </div>
+                    </li>
+                {/await}
+            {/each}
+        </ol>
+    {/if}
     <div
         class="relative"
         {@attach (node) => {

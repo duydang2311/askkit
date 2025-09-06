@@ -28,9 +28,16 @@ window-vibrancy = "0.6.0"
 reqwest = { version = "0.12.23", features = ["json", "stream"] }
 thiserror = "2.0.16"
 futures-util = "0.3.31"
-uuid = { version = "1.18.0", features = ["v4", "serde"] }
 tauri-plugin-stronghold = "2"
-tauri-plugin-sql = { version = "2", features = ["sqlite"] }
+sqlx = { version = "0.8.6", features = [
+    "sqlite",
+    "time",
+    "uuid",
+    "runtime-tokio",
+    "tls-native-tls"
+] }
+slug = "0.1.6"
+uuid = { version = "1.18.1", features = [ "v4", "serde" ] }
 
 
 [profile.dev]

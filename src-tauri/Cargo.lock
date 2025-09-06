@@ -179,12 +179,13 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
+ "slug",
+ "sqlx",
  "tauri",
  "tauri-build",
  "tauri-plugin-global-shortcut",
  "tauri-plugin-log",
  "tauri-plugin-opener",
- "tauri-plugin-sql",
  "tauri-plugin-stronghold",
  "thiserror 2.0.16",
  "uuid",
@@ -1138,6 +1139,12 @@ dependencies = [
  "rustc_version",
  "syn 2.0.106",
 ]
+
+[[package]]
+name = "deunicode"
+version = "1.6.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "abd57806937c9cc163efc8ea3910e00a62e2aeb0b8119f1793a978088f8f6b04"
 
 [[package]]
 name = "digest"
@@ -4851,6 +4858,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7a2ae44ef20feb57a68b23d846850f861394c2e02dc425a50098ae8c90267589"
 
 [[package]]
+name = "slug"
+version = "0.1.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "882a80f72ee45de3cc9a5afeb2da0331d58df69e4e7d8eeb5d3c7784ae67e724"
+dependencies = [
+ "deunicode",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "smallvec"
 version = "1.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4970,6 +4987,7 @@ dependencies = [
  "indexmap 2.11.0",
  "log",
  "memchr",
+ "native-tls",
  "once_cell",
  "percent-encoding",
  "serde",
@@ -4982,6 +5000,7 @@ dependencies = [
  "tokio-stream",
  "tracing",
  "url",
+ "uuid",
 ]
 
 [[package]]
@@ -5062,6 +5081,7 @@ dependencies = [
  "thiserror 2.0.16",
  "time",
  "tracing",
+ "uuid",
  "whoami",
 ]
 
@@ -5100,6 +5120,7 @@ dependencies = [
  "thiserror 2.0.16",
  "time",
  "tracing",
+ "uuid",
  "whoami",
 ]
 
@@ -5126,6 +5147,7 @@ dependencies = [
  "time",
  "tracing",
  "url",
+ "uuid",
 ]
 
 [[package]]
@@ -5596,25 +5618,6 @@ dependencies = [
  "url",
  "windows 0.61.3",
  "zbus",
-]
-
-[[package]]
-name = "tauri-plugin-sql"
-version = "2.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "df059378695202fef1e274b8e7916fc3dffc44716ae4baf8c0226089b2f390ae"
-dependencies = [
- "futures-core",
- "indexmap 2.11.0",
- "log",
- "serde",
- "serde_json",
- "sqlx",
- "tauri",
- "tauri-plugin",
- "thiserror 2.0.16",
- "time",
- "tokio",
 ]
 
 [[package]]
@@ -6299,9 +6302,9 @@ checksum = "b6c140620e7ffbb22c2dee59cafe6084a59b5ffc27a8859a5f0d494b5d52b6be"
 
 [[package]]
 name = "uuid"
-version = "1.18.0"
+version = "1.18.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f33196643e165781c20a5ead5582283a7dacbb87855d867fbc2df3f81eddc1be"
+checksum = "2f87b8aa10b915a06587d0dec516c282ff295b475d94abf425d62b57710070a2"
 dependencies = [
  "getrandom 0.3.3",
  "js-sys",

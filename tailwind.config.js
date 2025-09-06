@@ -1,0 +1,45 @@
+/** @type {import('tailwindcss').Config} */
+module.exports = {
+  theme: {
+    extend: {
+      typography: () => ({
+        DEFAULT: {
+          css: {
+            '--tw-prose-body': 'var(--color-base-fg)',
+            '--tw-prose-headings': 'var(--color-base-fg-light)',
+            '--tw-prose-lead': 'var(--color-base-fg)',
+            '--tw-prose-links': 'var(--color-base-fg)',
+            '--tw-prose-bold': 'var(--color-base-fg)',
+            '--tw-prose-counters': 'var(--color-base-fg)',
+            '--tw-prose-bullets': 'var(--color-base-fg)',
+            '--tw-prose-hr': 'var(--color-base-border)',
+            '--tw-prose-quotes': 'var(--color-base-fg)',
+            '--tw-prose-quote-borders': 'var(--color-base-fg)',
+            '--tw-prose-captions': 'var(--color-base-fg)',
+            '--tw-prose-code': 'var(--color-base-fg)',
+            '--tw-prose-pre-code': 'var(--color-base-fg)',
+            '--tw-prose-pre-bg': 'var(--color-base-light)',
+            '--tw-prose-th-borders': 'var(--color-base-fg)',
+            '--tw-prose-td-borders': 'var(--color-base-fg)',
+            '--tw-prose-invert-body': 'var(--color-base)',
+            '--tw-prose-invert-headings': 'var(--color-base)',
+            '--tw-prose-invert-lead': 'var(--color-base)',
+            '--tw-prose-invert-links': 'var(--color-base)',
+            '--tw-prose-invert-bold': 'var(--color-base)',
+            '--tw-prose-invert-counters': 'var(--color-base)',
+            '--tw-prose-invert-bullets': 'var(--color-base)',
+            '--tw-prose-invert-hr': 'var(--color-base-fg-muted)',
+            '--tw-prose-invert-quotes': 'var(--color-base)',
+            '--tw-prose-invert-quote-borders': 'var(--color-base)',
+            '--tw-prose-invert-captions': 'var(--color-base)',
+            '--tw-prose-invert-code': 'var(--color-base)',
+            '--tw-prose-invert-pre-code': 'var(--color-base)',
+            '--tw-prose-invert-pre-bg': 'var(--color-base-fg)',
+            '--tw-prose-invert-th-borders': 'var(--color-base)',
+            '--tw-prose-invert-td-borders': 'var(--color-base)',
+          },
+        },
+      }),
+    },
+  },
+}

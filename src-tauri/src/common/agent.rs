@@ -1,29 +1,57 @@
-use reqwest::{Client, RequestBuilder};
+use std::sync::Arc;
 
-use crate::common::http::BuildAgentPromptRequest;
+use futures_util::Stream;
+use serde::Serialize;
+use sqlx::{Database, Pool};
+
+use crate::common::{
+    agent_gemini::{GeminiAgent, GeminiTextGenRequestParams},
+    errors::AppError,
+    http::HttpClientManager,
+};
 
 pub enum Agent {
     Gemini(GeminiAgent),
 }
 
-pub struct GeminiAgent {
-    pub id: String,
-    pub api_key: String,
-    pub model: String,
+pub trait AgentApi {
+    type TextGenParams;
+
+    async fn generate_text<DB: Database>(
+        self,
+        context: AgentContext<DB>,
+        params: Self::TextGenParams,
+    ) -> Result<impl Stream<Item = Result<AgentTextGenResult, AppError>>, AppError>;
 }
 
-impl BuildAgentPromptRequest for GeminiAgent {
-    fn build_prompt_request(&self, client: &Client) -> RequestBuilder {
-        client.request(reqwest::Method::POST, format!("https://generativelanguage.googleapis.com/v1beta/models/{}:streamGenerateContent?alt=sse", &self.model))
-            .header("Content-Type", "application/json")
-            .header("X-goog-api-key", &self.api_key)
+#[derive(Serialize, Clone, Debug)]
+pub struct AgentTextGenResult {
+    pub text: String,
+}
+
+pub enum TextGenRequestParams {
+    Gemini(GeminiTextGenRequestParams),
+}
+
+pub struct AgentContext<DB: Database> {
+    pub http_client_manager: Arc<HttpClientManager>,
+    pub db_pool: Arc<Pool<DB>>,
+}
+
+impl<DB: Database> AgentContext<DB> {
+    pub fn new(http_client_manager: Arc<HttpClientManager>, db_pool: Arc<Pool<DB>>) -> Self {
+        Self {
+            http_client_manager,
+            db_pool,
+        }
     }
 }
 
-impl BuildAgentPromptRequest for Agent {
-    fn build_prompt_request(&self, client: &Client) -> RequestBuilder {
-        match self {
-            Agent::Gemini(agent) => agent.build_prompt_request(client),
+impl<DB: Database> Clone for AgentContext<DB> {
+    fn clone(&self) -> Self {
+        Self {
+            http_client_manager: Arc::clone(&self.http_client_manager),
+            db_pool: Arc::clone(&self.db_pool),
         }
     }
 }

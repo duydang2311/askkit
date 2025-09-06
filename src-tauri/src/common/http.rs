@@ -1,4 +1,4 @@
-use reqwest::{Client, RequestBuilder};
+use reqwest::Client;
 use std::sync::OnceLock;
 
 #[derive(Clone)]
@@ -16,8 +16,4 @@ impl HttpClientManager {
     pub fn get_client(&self) -> &Client {
         self.client.get_or_init(|| Client::new())
     }
-}
-
-pub trait BuildAgentPromptRequest {
-    fn build_prompt_request(&self, client: &Client) -> RequestBuilder;
 }

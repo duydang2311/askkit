@@ -1,0 +1,25 @@
+create table chats_new(
+    created_at integer not null default (unixepoch('now', 'subsecond')),
+    id blob primary key not null,
+    title text not null
+);
+
+create table chat_messages_new (
+    created_at integer not null default (unixepoch('now', 'subsecond')),
+    chat_id blob not null,
+    id blob primary key not null,
+    role text not null,
+    content text not null,
+    status text not null default 'completed' check (status in ('pending', 'completed')),
+    constraint fk_chat_messages_chats_chat_id foreign key (chat_id) references chats(id) on delete cascade
+);
+
+insert into chats_new(created_at, id, title) select created_at, id, title from chats;
+insert into chat_messages_new(created_at, chat_id, id, role, content, status)
+    select created_at, chat_id, id, role, content, iif(status = 'failed', 'completed', status) from chat_messages;
+
+drop table chats;
+drop table chat_messages;
+
+alter table chats_new rename to chats;
+alter table chat_messages_new rename to chat_messages;

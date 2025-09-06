@@ -1,3 +1,2 @@
-pub mod cmds;
-pub mod shortcuts;
 pub mod window;
+pub mod cmds;
