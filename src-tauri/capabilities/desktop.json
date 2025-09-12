@@ -9,11 +9,9 @@
     "launcher"
   ],
   "permissions": [
-    "global-shortcut:default",
     "core:window:allow-set-size",
     "core:window:allow-theme",
     "core:event:allow-listen",
-    "core:event:allow-unlisten",
-    "stronghold:default"
+    "core:event:allow-unlisten"
   ]
 }

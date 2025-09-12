@@ -1,4 +1,4 @@
-use std::{str::Utf8Error, time::SystemTimeError};
+use std::{str::Utf8Error, string::FromUtf8Error, time::SystemTimeError};
 
 use serde::{ser::SerializeStruct, Serialize, Serializer};
 use serde_json::error::Category;
@@ -25,6 +25,24 @@ pub enum AppError {
     Json(serde_json::Error),
     #[error("System time error")]
     SystemTime(SystemTimeError),
+    #[error("Keyring error")]
+    Keyring(keyring::Error),
+    #[error("AEAD error")]
+    AesGcm(aes_gcm::Error),
+    #[error("From UTF8 error")]
+    FromUtf8(FromUtf8Error),
+    #[error("Sqlx error: {0}")]
+    Sqlx(sqlx::Error),
+    #[error("Invalid agent provider error")]
+    InvalidAgentProvider(String),
+    #[error("Agent required error")]
+    AgentRequired,
+    #[error("Agent text gen params required error")]
+    AgentTextGenParamsRequired,
+    #[error("Mutex try lock error: {0}")]
+    TryLock(tokio::sync::TryLockError),
+    #[error("Transaction is still in use")]
+    TransactionInUse,
     #[error("Unknown error")]
     Unknown(Option<Box<dyn std::error::Error + Send + Sync>>),
 }
@@ -66,6 +84,36 @@ impl From<serde_json::Error> for AppError {
 impl From<SystemTimeError> for AppError {
     fn from(value: SystemTimeError) -> Self {
         AppError::SystemTime(value)
+    }
+}
+
+impl From<keyring::Error> for AppError {
+    fn from(value: keyring::Error) -> Self {
+        AppError::Keyring(value)
+    }
+}
+
+impl From<aes_gcm::Error> for AppError {
+    fn from(value: aes_gcm::Error) -> Self {
+        AppError::AesGcm(value)
+    }
+}
+
+impl From<FromUtf8Error> for AppError {
+    fn from(value: FromUtf8Error) -> Self {
+        AppError::FromUtf8(value)
+    }
+}
+
+impl From<sqlx::Error> for AppError {
+    fn from(value: sqlx::Error) -> Self {
+        AppError::Sqlx(value)
+    }
+}
+
+impl From<tokio::sync::TryLockError> for AppError {
+    fn from(value: tokio::sync::TryLockError) -> Self {
+        AppError::TryLock(value)
     }
 }
 
@@ -134,6 +182,49 @@ impl Serialize for AppError {
                 state = serializer.serialize_struct("AppError", 2)?;
                 state.serialize_field("kind", "SystemTimeError")?;
                 state.serialize_field("message", &error.to_string())?;
+            }
+            AppError::Keyring(error) => {
+                state = serializer.serialize_struct("AppError", 2)?;
+                state.serialize_field("kind", "KeyringError")?;
+                state.serialize_field("message", &error.to_string())?;
+            }
+            AppError::AesGcm(error) => {
+                state = serializer.serialize_struct("AppError", 2)?;
+                state.serialize_field("kind", "AesGcmError")?;
+                state.serialize_field("message", &error.to_string())?;
+            }
+            AppError::FromUtf8(error) => {
+                state = serializer.serialize_struct("AppError", 2)?;
+                state.serialize_field("kind", "FromUtf8Error")?;
+                state.serialize_field("message", &error.to_string())?;
+            }
+            AppError::Sqlx(error) => {
+                state = serializer.serialize_struct("AppError", 2)?;
+                state.serialize_field("kind", "SqlxError")?;
+                state.serialize_field("message", &error.to_string())?;
+            }
+            AppError::InvalidAgentProvider(provider) => {
+                state = serializer.serialize_struct("AppError", 2)?;
+                state.serialize_field("kind", "InvalidAgentProviderError")?;
+                state
+                    .serialize_field("message", &format!("invalid agent provider: {}", provider))?;
+            }
+            AppError::AgentRequired => {
+                state = serializer.serialize_struct("AppError", 1)?;
+                state.serialize_field("kind", "AgentRequiredError")?;
+            }
+            AppError::AgentTextGenParamsRequired => {
+                state = serializer.serialize_struct("AppError", 1)?;
+                state.serialize_field("kind", "AgentTextGenParamsRequiredError")?;
+            }
+            AppError::TryLock(error) => {
+                state = serializer.serialize_struct("AppError", 2)?;
+                state.serialize_field("kind", "TryLockError")?;
+                state.serialize_field("message", &error.to_string())?;
+            }
+            AppError::TransactionInUse => {
+                state = serializer.serialize_struct("AppError", 1)?;
+                state.serialize_field("kind", "TransactionInUse")?;
             }
             AppError::Unknown(Some(error)) => {
                 state = serializer.serialize_struct("AppError", 2)?;

@@ -15,11 +15,15 @@
     import { on } from 'svelte/events';
     import { Markdown } from 'tiptap-markdown';
     import PaperAirplane from '~icons/heroicons/paper-airplane-16-solid';
-    import { onEvent } from '../lib/common/tauri';
+    import BotOff from '~icons/lucide/bot-off';
+    import Bot from '~icons/lucide/bot';
+    import { onEvent } from '../../lib/common/tauri';
     import Greetings from './Greetings.svelte';
+    import { isAppError } from '../../lib/common/error';
+    import { SvelteSet } from 'svelte/reactivity';
+    import AgentScreen from './AgentScreen.svelte';
 
-    const editorBaseClass =
-        'w-screen max-h-64 overflow-auto pl-6 pr-18 py-4 focus:outline-none';
+    const editorBaseClass = 'w-screen max-h-64 overflow-auto pl-6 pr-28 py-4 focus:outline-none';
     let editor = $state.raw<Editor>();
     let containerEl = $state.raw<HTMLElement>();
     let chatEl = $state.raw<HTMLElement>();
@@ -27,6 +31,8 @@
         id: string;
         messages: { id: string; role: string; content: string }[];
     } | null>(null);
+    let errors = new SvelteSet<string>();
+    let showAgentScreen = $state.raw(false);
 
     const hasMultilines = (editor: Editor) => {
         if (editor.state.doc.content.childCount > 1) {
@@ -43,6 +49,7 @@
     };
 
     const submit = async () => {
+        errors.clear();
         if (!editor) {
             return;
         }
@@ -56,10 +63,20 @@
                 messages: [],
             };
         }
-        await invoke<string>('send_chat_message', {
-            content,
-            chatId: chat.id,
-        });
+        try {
+            await invoke<string>('send_chat_message', {
+                content,
+                chatId: chat.id,
+            });
+        } catch (e) {
+            console.log(e);
+            if (isAppError(e)) {
+                if (e.kind === 'AgentRequiredError' || e.kind === 'AgentTextGenParamsRequiredError')
+                    errors.add(e.kind);
+            } else {
+                throw e;
+            }
+        }
     };
 
     onEvent('chat_message_response_chunk', (e) => {
@@ -109,9 +126,9 @@
             const el = chatEl;
             const gapPx =
                 (
-                    document.documentElement
-                        .computedStyleMap()
-                        .get('font-size') as CSSUnitValue | undefined
+                    document.documentElement.computedStyleMap().get('font-size') as
+                        | CSSUnitValue
+                        | undefined
                 )?.value ?? 16;
             const secondLastEl = el.lastElementChild as HTMLElement | undefined;
             tick().finally(() => {
@@ -134,17 +151,13 @@
                             let lastUserRoleEl: HTMLElement | null = lastEl;
                             while (
                                 lastUserRoleEl != null &&
-                                lastUserRoleEl.getAttribute('data-role') !==
-                                    'user'
+                                lastUserRoleEl.getAttribute('data-role') !== 'user'
                             ) {
                                 lastUserRoleEl =
                                     lastUserRoleEl.previousElementSibling as HTMLElement | null;
                             }
                             el.scrollTo({
-                                top:
-                                    (lastUserRoleEl ?? lastEl).offsetTop -
-                                    el.offsetTop -
-                                    gapPx,
+                                top: (lastUserRoleEl ?? lastEl).offsetTop - el.offsetTop - gapPx,
                                 behavior: 'smooth',
                             });
                         }
@@ -153,6 +166,11 @@
             });
         }
     });
+
+    const updateWindowSize = (width: number, height: number) => {
+        return getCurrentWebviewWindow().setSize(new LogicalSize(width, height));
+    };
+    let lastHeight = 0;
 
     onMount(() => {
         return on(window, 'keyup', async (e) => {
@@ -163,27 +181,39 @@
     });
 </script>
 
-<main bind:this={containerEl}>
-    <div
-        class="flex justify-between gap-4 px-6 py-2 border-b border-b-base-border"
-    >
+<main
+    bind:this={containerEl}
+    {@attach (node) => {
+        const observer = new ResizeObserver(() => {
+            // avoid flickering due to sub-pixel rendering differences, especially when typing
+            if (Math.abs(node.scrollHeight - lastHeight) <= 1) {
+                return;
+            }
+            lastHeight = node.scrollHeight;
+            updateWindowSize(node.scrollWidth, node.scrollHeight);
+        });
+        observer.observe(node);
+        return () => {
+            observer.disconnect();
+        };
+    }}
+>
+    <div class="flex justify-between gap-4 px-6 py-2 border-b border-b-base-border">
         <Greetings />
         <p class="text-primary font-bold tracking-tight">askkit</p>
     </div>
-    {#if chat}
+    {#if showAgentScreen}
+        <AgentScreen />
+    {:else if chat}
         <ol
             bind:this={chatEl}
-            class="h-128 border-b border-b-base-border px-6 py-4 overflow-auto space-y-4 custom-scrollbar"
+            class="relative h-128 border-b border-b-base-border px-6 py-4 overflow-auto space-y-4 custom-scrollbar"
             {@attach () => {
-                
                 if (!containerEl) {
                     return;
                 }
                 getCurrentWebviewWindow().setSize(
-                    new LogicalSize(
-                        containerEl.scrollWidth,
-                        containerEl.scrollHeight
-                    )
+                    new LogicalSize(containerEl.scrollWidth, containerEl.scrollHeight)
                 );
             }}
         >
@@ -199,6 +229,15 @@
                     </li>
                 {/await}
             {/each}
+            {#if errors.size > 0}
+                <div class="absolute inset-0 flex flex-col justify-center items-center p-20">
+                    {#if errors.has('AgentRequiredError')}
+                        {@render agentRequiredError()}
+                    {:else if errors.has('AgentTextGenParamsRequiredError')}
+                        {@render agentTextGenParamsRequiredError()}
+                    {/if}
+                </div>
+            {/if}
         </ol>
     {/if}
     <div
@@ -239,12 +278,7 @@
                                     class: editorBaseClass,
                                 },
                             });
-                            await getCurrentWebviewWindow().setSize(
-                                new LogicalSize(
-                                    container.scrollWidth,
-                                    container.scrollHeight
-                                )
-                            );
+                            await updateWindowSize(container.scrollWidth, container.scrollHeight);
                             props.editor.view.setProps({
                                 attributes: {
                                     class: editorBaseClass,
@@ -266,16 +300,39 @@
             };
         }}
     >
-        <button
-            type="button"
-            disabled={editor?.isEmpty ?? true}
-            data-multiline={(editor ? hasMultilines(editor) : false)
-                ? ''
-                : undefined}
-            class="p-1 absolute size-8 right-6 bottom-4 text-primary disabled:text-base-fg-muted z-10 not-[[data-multiline]]:bottom-1/2 not-[[data-multiline]]:translate-y-1/2"
-            onclick={submit}
+        <div
+            data-multiline={(editor ? hasMultilines(editor) : false) ? '' : undefined}
+            class="flex gap-2 absolute right-6 bottom-4 not-[[data-multiline]]:bottom-1/2 not-[[data-multiline]]:translate-y-1/2 z-10"
         >
-            <PaperAirplane class="size-full" />
-        </button>
+            <button
+                type="button"
+                class="p-1 size-8 disabled:text-base-fg-muted"
+                onclick={() => {
+                    showAgentScreen = !showAgentScreen;
+                }}
+            >
+                <Bot class="size-full" />
+            </button>
+            <button
+                type="button"
+                disabled={editor?.isEmpty ?? true}
+                class="p-1 size-8 text-primary disabled:text-base-fg-muted"
+                onclick={submit}
+            >
+                <PaperAirplane class="size-full" />
+            </button>
+        </div>
     </div>
 </main>
+
+{#snippet agentRequiredError()}
+    <BotOff class="block size-16 text-base-fg-muted" />
+    <p class="text-base-fg-muted text-xl">No agent selected</p>
+    <p class="mt-4">Please select an AI agent to start chatting</p>
+{/snippet}
+
+{#snippet agentTextGenParamsRequiredError()}
+    <BotOff class="block size-16 text-base-fg-muted" />
+    <p class="text-base-fg-muted text-xl">Agent not configured</p>
+    <p class="mt-4">Configure the required parameters for the selected agent to start chatting</p>
+{/snippet}

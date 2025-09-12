@@ -1,20 +1,23 @@
 @import 'tailwindcss';
+@import 'lib/stylesheets/c-label.css' layer(components);
+
 @plugin '@tailwindcss/typography';
 @config '../tailwind.config.js';
 
 @custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
 
 @theme {
-    --color-base: oklch(96.42% 0 116.2);
+    --color-base: oklch(99% 0 116.2);
     --color-base-light: oklch(100% 0 116.2);
-    --color-base-dark: oklch(94% 0 116.2);
+    --color-base-dark: oklch(96% 0 116.2);
+    --color-base-hover: oklch(94% 0 116.2);
     --color-base-fg: oklch(17% 0.0038 164.54);
     --color-base-fg-light: oklch(27% 0.0038 164.54);
     --color-base-fg-dark: oklch(7% 0.0038 164.54);
     --color-base-fg-muted: oklch(57% 0.0038 164.54);
-    --color-base-border: oklch(86.42% 0 116.2);
-    --color-base-border-light: oklch(90.42% 0 116.2);
-    --color-base-border-dark: oklch(82.42% 0 116.2);
+    --color-base-border: oklch(90% 0 116.2);
+    --color-base-border-light: oklch(94% 0 116.2);
+    --color-base-border-dark: oklch(86% 0 116.2);
 
     --color-primary: oklch(52.36% 0.1748 255.4);
 
@@ -26,16 +29,17 @@
 @layer base {
     :root {
         @variant dark {
-            --color-base: oklch(24.35% 0 116.2);
-            --color-base-light: oklch(26.35% 0 116.2);
-            --color-base-dark: oklch(22.35% 0 116.2);
+            --color-base: oklch(21% 0 116.2);
+            --color-base-light: oklch(23% 0 116.2);
+            --color-base-dark: oklch(19% 0 116.2);
+            --color-base-hover: oklch(25% 0 116.2);
             --color-base-fg: oklch(100% 0 116.2);
             --color-base-fg-light: oklch(100% 0 116.2);
             --color-base-fg-dark: oklch(90% 0 116.2);
             --color-base-fg-muted: oklch(60% 0 116.2);
-            --color-base-border: oklch(28.35% 0 116.2);
-            --color-base-border-light: oklch(30.35% 0 116.2);
-            --color-base-border-dark: oklch(26.35% 0 116.2);
+            --color-base-border: oklch(30% 0 116.2);
+            --color-base-border-light: oklch(32% 0 116.2);
+            --color-base-border-dark: oklch(28% 0 116.2);
 
             --color-primary: oklch(64.94% 0.1928 251.89);
         }
@@ -45,12 +49,12 @@
 @layer base {
     :root {
         overflow: hidden;
-        background-color: color-mix(in oklch, var(--color-base) 60%, transparent);
+        background-color: var(--color-base);
         color: var(--color-base-fg);
         cursor: default;
         user-select: none;
-        font-size: 16px;
-        line-height: 1.5rem;
+        font-size: 15px;
+        line-height: 1.5;
         font-weight: 400;
 
         font-synthesis: none;

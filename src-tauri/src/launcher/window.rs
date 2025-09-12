@@ -27,8 +27,6 @@ pub fn open(app_handle: &AppHandle) -> tauri::Result<()> {
             .always_on_top(true)
             .skip_taskbar(true)
             .resizable(false)
-            .transparent(true)
-            .shadow(true)
             .build()
         }
     }?;

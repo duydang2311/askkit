@@ -1,3 +1,4 @@
+import { QueryClient } from '@tanstack/svelte-query';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import type { LayoutLoad } from './$types';
 
@@ -6,5 +7,5 @@ export const ssr = false;
 
 export const load: LayoutLoad = async () => {
     const theme = await getCurrentWebviewWindow().theme();
-    return { theme };
+    return { queryClient: new QueryClient(), theme };
 };

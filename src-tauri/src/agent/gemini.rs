@@ -1,27 +1,28 @@
+use async_trait::async_trait;
 use futures_util::{self, stream, Stream, TryStreamExt};
 use serde::{Deserialize, Serialize};
 use sqlx::Database;
+use uuid::Uuid;
 
-use crate::common::{
-    agent::{AgentApi, AgentContext, AgentTextGenResult},
-    errors::AppError,
-};
+use crate::agent::{AgentApi, AgentContext, AgentTextGenResult};
+use crate::common::entity::agent::AgentConfigRow;
+use crate::common::error::AppError;
 
 const HEADER_CONTENT_TYPE: &str = "Content-Type";
 const HEADER_X_GOOG_API_KEY: &str = "X-goog-api-key";
 
 #[derive(Clone)]
 pub struct GeminiAgent {
-    pub id: String,
+    pub id: Uuid,
     pub model: String,
 }
 
-pub struct GeminiTextGenRequestParams {
+pub struct GeminiTextGenParams {
     pub api_key: String,
-    pub messages: Vec<GeminiTextGenRequestParamsMessage>,
+    pub messages: Vec<GeminiTextGenParamsMessage>,
 }
 
-pub struct GeminiTextGenRequestParamsMessage {
+pub struct GeminiTextGenParamsMessage {
     pub role: String,
     pub content: String,
 }
@@ -62,12 +63,13 @@ pub struct GeminiTextGenResponseBodyCandidateContentPart {
     pub text: String,
 }
 
+#[async_trait]
 impl AgentApi for GeminiAgent {
-    type TextGenParams = GeminiTextGenRequestParams;
+    type TextGenParams = GeminiTextGenParams;
 
-    async fn generate_text<DB: Database>(
+    async fn generate_text(
         self,
-        context: AgentContext<DB>,
+        context: AgentContext,
         params: Self::TextGenParams,
     ) -> Result<impl Stream<Item = Result<AgentTextGenResult, AppError>>, AppError> {
         let client = context.http_client_manager.get_client();
@@ -120,5 +122,34 @@ impl AgentApi for GeminiAgent {
             })
             .try_flatten();
         Ok(stream)
+    }
+
+    async fn create_text_gen_params(
+        &self,
+        context: AgentContext,
+        chat_id: Uuid,
+    ) -> Result<Option<Self::TextGenParams>, AppError> {
+        let config = context.agent_repo.get_agent_config(self.id).await?;
+
+        Ok(match config {
+            Some(config) => {
+                let chat_messages = context.chat_repo.get_chat_messages(chat_id).await?;
+                Some(Self::TextGenParams {
+                    api_key: config.api_key.unwrap_or_default(),
+                    messages: chat_messages
+                        .into_iter()
+                        .map(|a| GeminiTextGenParamsMessage {
+                            role: match a.role.as_str() {
+                                "model" => "model",
+                                _ => "user",
+                            }
+                            .into(),
+                            content: a.content,
+                        })
+                        .collect(),
+                })
+            }
+            None => None,
+        })
     }
 }

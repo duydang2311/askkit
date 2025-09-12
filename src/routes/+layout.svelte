@@ -2,6 +2,7 @@
     import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
     import '../app.css';
     import '@fontsource-variable/inter';
+    import { QueryClientProvider } from '@tanstack/svelte-query';
 
     const { data, children } = $props();
 </script>
@@ -12,14 +13,14 @@
         node.documentElement.setAttribute('data-theme', theme ?? 'light');
 
         const unlisten = getCurrentWebviewWindow().onThemeChanged((e) => {
-            node.documentElement.setAttribute(
-                'data-theme',
-                e.payload ?? 'light'
-            );
+            node.documentElement.setAttribute('data-theme', e.payload ?? 'light');
         });
         return () => {
             unlisten.then((a) => a());
         };
     }}
 />
-{@render children()}
+
+<QueryClientProvider client={data.queryClient}>
+    {@render children()}
+</QueryClientProvider>

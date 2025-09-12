@@ -1,0 +1,5 @@
+.c-label {
+    font-size: var(--text-sm);
+    font-weight: 500;
+    color: var(--color-base-fg-muted);
+}

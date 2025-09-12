@@ -1,24 +1,19 @@
-use std::sync::Arc;
-
 use futures_util::StreamExt;
 use serde::Serialize;
 use slug::slugify;
 use sqlx::Pool;
 use sqlx::Sqlite;
+use std::sync::Arc;
 use tauri::AppHandle;
 use tauri::Emitter;
 use uuid::Uuid;
 
-use crate::chat::utils::get_chat_messages;
-use crate::chat::utils::{
-    create_chat_message, update_chat_message, CreateChatMessage, UpdateChatMessage,
+use crate::common::unit_of_work::UnitOfWorkFactory;
+use crate::{
+    agent::{Agent, AgentApi, AgentContext},
+    chat::repo::{ChatRepo, CreateChatMessage, UpdateChatMessage},
+    common::{entity::chat::ChatMessageStatus, error::AppError},
 };
-use crate::common::agent::{AgentApi, AgentContext};
-use crate::common::agent_gemini::{
-    GeminiAgent, GeminiTextGenRequestParams, GeminiTextGenRequestParamsMessage,
-};
-use crate::common::entity::chat::ChatMessageStatus;
-use crate::common::errors::AppError;
 
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -35,7 +30,7 @@ pub async fn create_chat(
 ) -> Result<Uuid, AppError> {
     let chat_id = Uuid::new_v4();
     let title = slugify(content);
-    sqlx::query("insert into chats (id, title) values ($1, $2)")
+    sqlx::query("insert into chats (id, title) values (?1, ?2)")
         .bind(chat_id)
         .bind(title)
         .execute(&**db_pool.inner())
@@ -49,65 +44,58 @@ pub async fn send_chat_message(
     chat_id: Uuid,
     content: String,
     app_handle: AppHandle,
-    agent_context: tauri::State<'_, AgentContext<Sqlite>>,
-    db_pool: tauri::State<'_, Arc<Pool<Sqlite>>>,
+    agent_context: tauri::State<'_, AgentContext>,
+    unit_of_work_factory: tauri::State<'_, Arc<dyn UnitOfWorkFactory>>,
+    static_chat_repo: tauri::State<'_, Arc<dyn ChatRepo>>,
 ) -> Result<(), AppError> {
-    let agent = GeminiAgent {
-        id: "".into(),
-        model: "gemini-2.5-flash".into(),
-    };
-    let user_chat_msg = create_chat_message(
-        CreateChatMessage {
+    let unit_of_work = unit_of_work_factory.create().await?;
+    let agent_repo = unit_of_work.agent_repo();
+    let current_agent = agent_repo
+        .get_current_agent()
+        .await?
+        .ok_or_else(|| AppError::AgentRequired)?;
+    let agent = Agent::from(current_agent);
+    let chat_repo = unit_of_work.chat_repo();
+    let user_chat_msg = chat_repo
+        .create_chat_message(CreateChatMessage {
             id: Uuid::new_v4(),
             chat_id,
             role: "user".into(),
             content: content.clone(),
             status: ChatMessageStatus::Completed,
-        },
-        db_pool.inner(),
-    )
-    .await?;
-    let _ = app_handle
-        .emit("chat_message_created", &user_chat_msg)
-        .inspect_err(|e| {
-            log::error!("Failed to emit response chunk: {e}");
-        });
-
-    let chat_messages = get_chat_messages(chat_id, db_pool.inner()).await?;
-    let mut stream = agent
-        .generate_text(
-            agent_context.inner().clone(),
-            GeminiTextGenRequestParams {
-                api_key: "".into(),
-                messages: chat_messages
-                    .into_iter()
-                    .map(|msg| GeminiTextGenRequestParamsMessage {
-                        role: msg.role,
-                        content: msg.content,
-                    })
-                    .collect(),
-            },
-        )
+        })
         .await?;
 
-    let model_chat_msg = create_chat_message(
-        CreateChatMessage {
+    let config = agent
+        .create_text_gen_params(agent_context.inner().clone(), chat_id)
+        .await?
+        .ok_or_else(|| AppError::AgentTextGenParamsRequired)?;
+    let mut stream = agent
+        .generate_text(agent_context.inner().clone(), config)
+        .await?;
+
+    let model_chat_msg = chat_repo
+        .create_chat_message(CreateChatMessage {
             id: Uuid::new_v4(),
             chat_id,
             role: "model".into(),
             content: String::new(),
             status: ChatMessageStatus::Pending,
-        },
-        db_pool.inner(),
-    )
-    .await?;
+        })
+        .await?;
     let _ = app_handle
         .emit("chat_message_created", model_chat_msg.clone())
         .inspect_err(|e| {
-            log::error!("Failed to emit response chunk: {e}");
+            log::error!("failed to emit response chunk: {e}");
         });
 
-    let db_pool_clone = db_pool.inner().clone();
+    unit_of_work.commit().await?;
+    let _ = app_handle
+        .emit("chat_message_created", &user_chat_msg)
+        .inspect_err(|e| {
+            log::error!("failed to emit response chunk: {e}");
+        });
+    let chat_repo = static_chat_repo.inner().clone();
     tauri::async_runtime::spawn(async move {
         let mut text = String::new();
         let mut chunk_count = 0;
@@ -118,18 +106,18 @@ pub async fn send_chat_message(
                     chunk_count += 1;
                     if chunk_count == 5 {
                         chunk_count = 0;
-                        let _ = update_chat_message(
-                            model_chat_msg.id,
-                            UpdateChatMessage {
-                                content: Some(text.clone()),
-                                ..Default::default()
-                            },
-                            &*db_pool_clone,
-                        )
-                        .await
-                        .inspect_err(|e| {
-                            log::error!("failed to update chat message content: {e}");
-                        });
+                        let _ = chat_repo
+                            .update_chat_message(
+                                model_chat_msg.id,
+                                UpdateChatMessage {
+                                    content: Some(text.clone()),
+                                    ..Default::default()
+                                },
+                            )
+                            .await
+                            .inspect_err(|e| {
+                                log::error!("failed to update chat message content: {e}");
+                            });
                     }
                     let _ = app_handle
                         .emit(
@@ -146,39 +134,39 @@ pub async fn send_chat_message(
                 }
                 Err(err) => {
                     log::error!("Stream error: {err}");
-                    let _ = update_chat_message(
-                        model_chat_msg.id,
-                        UpdateChatMessage {
-                            content: Some(text.clone()),
-                            status: Some(ChatMessageStatus::Failed),
-                            ..Default::default()
-                        },
-                        &*db_pool_clone,
-                    )
-                    .await
-                    .inspect_err(|e| {
-                        log::error!("failed to update chat message status and content: {e}");
-                    });
+                    let _ = chat_repo
+                        .update_chat_message(
+                            model_chat_msg.id,
+                            UpdateChatMessage {
+                                content: Some(text.clone()),
+                                status: Some(ChatMessageStatus::Failed),
+                                ..Default::default()
+                            },
+                        )
+                        .await
+                        .inspect_err(|e| {
+                            log::error!("failed to update chat message status and content: {e}");
+                        });
                     return;
                 }
             }
         }
-        let _ = update_chat_message(
-            model_chat_msg.id,
-            UpdateChatMessage {
-                content: match chunk_count {
-                    0 => None,
-                    _ => Some(text.clone()),
+        let _ = chat_repo
+            .update_chat_message(
+                model_chat_msg.id,
+                UpdateChatMessage {
+                    content: match chunk_count {
+                        0 => None,
+                        _ => Some(text.clone()),
+                    },
+                    status: Some(ChatMessageStatus::Completed),
+                    ..Default::default()
                 },
-                status: Some(ChatMessageStatus::Completed),
-                ..Default::default()
-            },
-            &*db_pool_clone,
-        )
-        .await
-        .inspect_err(|e| {
-            log::error!("failed to update chat message status and content: {e}");
-        });
+            )
+            .await
+            .inspect_err(|e| {
+                log::error!("failed to update chat message status and content: {e}");
+            });
     });
 
     Ok(())
