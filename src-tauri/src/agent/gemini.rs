@@ -1,11 +1,9 @@
 use async_trait::async_trait;
 use futures_util::{self, stream, Stream, TryStreamExt};
 use serde::{Deserialize, Serialize};
-use sqlx::Database;
 use uuid::Uuid;
 
 use crate::agent::{AgentApi, AgentContext, AgentTextGenParamsApi, AgentTextGenResult};
-use crate::common::entity::agent::AgentConfigRow;
 use crate::common::error::AppError;
 
 const HEADER_CONTENT_TYPE: &str = "Content-Type";
@@ -83,7 +81,6 @@ impl AgentApi for GeminiAgent {
                 })
                 .collect(),
         };
-        println!("body: {:?}", serde_json::to_string(&body));
         let stream = client
             .request(
                 reqwest::Method::POST,
@@ -100,7 +97,6 @@ impl AgentApi for GeminiAgent {
             .map_ok(|bytes| {
                 let results: Vec<Result<AgentTextGenResult, AppError>> = match std::str::from_utf8(&bytes) {
                     Ok(text) => {
-                        println!("Gemini response chunk: {}", text);
                         text.lines()
                             .filter_map(|line| line.strip_prefix("data:").map(str::trim))
                             .filter(|line| !line.is_empty())

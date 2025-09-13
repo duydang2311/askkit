@@ -7,7 +7,7 @@ use uuid::Uuid;
 use crate::{
     chat::repo::{ChatRepo, CreateChatMessage, UpdateChatMessage},
     common::{
-        entity::chat::{ChatMessageRow, ChatMessageStatus},
+        entity::chat::{ChatMessageRow, ChatRow},
         error::AppError,
     },
 };
@@ -52,6 +52,10 @@ impl ChatRepo for SqliteChatRepo {
     ) -> Result<(), AppError> {
         update_chat_message(&*self.db_pool, id, update).await
     }
+
+    async fn get_chat(&self, id: Uuid) -> Result<Option<ChatRow>, AppError> {
+        get_chat(&*self.db_pool, id).await
+    }
 }
 
 #[async_trait]
@@ -77,6 +81,11 @@ impl<'a> ChatRepo for TransactionalSqliteChatRepo<'a> {
         let mut tx = self.tx.try_lock().map_err(AppError::from)?;
         update_chat_message(&mut **tx, id, update).await
     }
+
+    async fn get_chat(&self, id: Uuid) -> Result<Option<ChatRow>, AppError> {
+        let mut tx = self.tx.try_lock().map_err(AppError::from)?;
+        get_chat(&mut **tx, id).await
+    }
 }
 
 async fn get_chat_messages<'a, E>(
@@ -86,11 +95,13 @@ async fn get_chat_messages<'a, E>(
 where
     E: Executor<'a, Database = Sqlite>,
 {
-    sqlx::query_as::<_, ChatMessageRow>("select * from chat_messages where chat_id = ?1")
-        .bind(&chat_id)
-        .fetch_all(executor)
-        .await
-        .map_err(AppError::from)
+    sqlx::query_as::<_, ChatMessageRow>(
+        "select * from chat_messages where chat_id = ?1 order by created_at asc",
+    )
+    .bind(&chat_id)
+    .fetch_all(executor)
+    .await
+    .map_err(AppError::from)
 }
 
 async fn create_chat_message<'a, E>(
@@ -143,4 +154,15 @@ where
 
     qb.build().execute(executor).await.map_err(AppError::from)?;
     Ok(())
+}
+
+async fn get_chat<'a, E>(executor: E, id: Uuid) -> Result<Option<ChatRow>, AppError>
+where
+    E: Executor<'a, Database = Sqlite>,
+{
+    sqlx::query_as::<_, ChatRow>("select * from chats where id = ?1")
+        .bind(&id)
+        .fetch_optional(executor)
+        .await
+        .map_err(AppError::from)
 }

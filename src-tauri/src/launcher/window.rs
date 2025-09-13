@@ -15,7 +15,7 @@ pub fn open(app_handle: &AppHandle) -> tauri::Result<()> {
             tauri::WebviewWindowBuilder::new(
                 app_handle,
                 "launcher",
-                WebviewUrl::App("/launcher".into()),
+                WebviewUrl::App("/launcher/chats".into()),
             )
             .title("Launcher")
             .inner_size(WIDTH, HEIGHT)

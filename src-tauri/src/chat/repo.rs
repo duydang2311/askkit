@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use uuid::Uuid;
 
 use crate::common::{
-    entity::chat::{ChatMessageRow, ChatMessageStatus},
+    entity::chat::{ChatMessageRow, ChatMessageStatus, ChatRow},
     error::AppError,
 };
 
@@ -35,4 +35,5 @@ pub trait ChatRepo: Send + Sync {
         id: Uuid,
         update: UpdateChatMessage,
     ) -> Result<(), AppError>;
+    async fn get_chat(&self, id: Uuid) -> Result<Option<ChatRow>, AppError>;
 }

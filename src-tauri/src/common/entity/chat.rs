@@ -1,7 +1,7 @@
 use serde::Serialize;
 use uuid::Uuid;
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Clone, sqlx::FromRow)]
 pub struct ChatRow {
     pub created_at: i64,
     pub id: Uuid,

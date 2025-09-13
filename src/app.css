@@ -7,7 +7,7 @@
 @custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
 
 @theme {
-    --color-base: oklch(99% 0 116.2);
+    --color-base: oklch(98% 0 116.2);
     --color-base-light: oklch(100% 0 116.2);
     --color-base-dark: oklch(96% 0 116.2);
     --color-base-hover: oklch(94% 0 116.2);

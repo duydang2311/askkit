@@ -8,6 +8,8 @@ use tauri::AppHandle;
 use tauri::Emitter;
 use uuid::Uuid;
 
+use crate::common::entity::chat::ChatMessageRow;
+use crate::common::entity::chat::ChatRow;
 use crate::{
     agent::{Agent, AgentApi, AgentContext, AgentTextGenParamsApi},
     chat::repo::{ChatRepo, CreateChatMessage, UpdateChatMessage},
@@ -20,6 +22,21 @@ pub struct ChatMessageResponseChunkPayload {
     pub chat_id: Uuid,
     pub id: Uuid,
     pub text: String,
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ChatMessageRollbackPayload {
+    pub chat_id: Uuid,
+    pub message_id: Uuid,
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ChatMessageStatusChangedPayload {
+    pub chat_id: Uuid,
+    pub message_id: Uuid,
+    pub status: ChatMessageStatus,
 }
 
 #[tauri::command]
@@ -101,8 +118,20 @@ pub async fn send_chat_message(
         });
 
     unit_of_work.commit().await.inspect_err(|_| {
-        let _ = app_handle.emit("chat_message_rollback", &user_chat_msg.id);
-        let _ = app_handle.emit("chat_message_rollback", &model_chat_msg.id);
+        let _ = app_handle.emit(
+            "chat_message_rollback",
+            ChatMessageRollbackPayload {
+                chat_id: chat_id,
+                message_id: user_chat_msg.id,
+            },
+        );
+        let _ = app_handle.emit(
+            "chat_message_rollback",
+            ChatMessageRollbackPayload {
+                chat_id: chat_id,
+                message_id: model_chat_msg.id,
+            },
+        );
     })?;
     let chat_repo = static_chat_repo.inner().clone();
     tauri::async_runtime::spawn(async move {
@@ -176,7 +205,35 @@ pub async fn send_chat_message(
             .inspect_err(|e| {
                 log::error!("failed to update chat message status and content: {e}");
             });
+        let _ = app_handle
+            .emit(
+                "chat_message_status_changed",
+                ChatMessageStatusChangedPayload {
+                    chat_id,
+                    message_id: model_chat_msg.id,
+                    status: ChatMessageStatus::Completed,
+                },
+            )
+            .inspect_err(|e| {
+                log::error!("failed to emit chat_message_completed: {e}");
+            });
     });
 
     Ok(())
+}
+
+#[tauri::command]
+pub async fn get_chat(
+    id: Uuid,
+    chat_repo: tauri::State<'_, Arc<dyn ChatRepo>>,
+) -> Result<Option<ChatRow>, AppError> {
+    chat_repo.get_chat(id).await
+}
+
+#[tauri::command]
+pub async fn get_chat_messages(
+    id: Uuid,
+    chat_repo: tauri::State<'_, Arc<dyn ChatRepo>>,
+) -> Result<Vec<ChatMessageRow>, AppError> {
+    chat_repo.get_chat_messages(id).await
 }

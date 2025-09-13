@@ -40,6 +40,8 @@ pub fn run() {
         .invoke_handler(generate_handler![
             chat::cmds::create_chat,
             chat::cmds::send_chat_message,
+            chat::cmds::get_chat,
+            chat::cmds::get_chat_messages,
             launcher::cmds::destroy_launcher_window,
             agent::cmds::get_agents,
             agent::cmds::get_current_agent,
