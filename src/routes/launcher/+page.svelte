@@ -22,8 +22,10 @@
     import { isAppError } from '../../lib/common/error';
     import { SvelteSet } from 'svelte/reactivity';
     import AgentScreen from './AgentScreen.svelte';
+    import { useCurrentAgent } from '$lib/common/queries';
 
     const editorBaseClass = 'w-screen max-h-64 overflow-auto pl-6 pr-28 py-4 focus:outline-none';
+    const currentAgent = useCurrentAgent();
     let editor = $state.raw<Editor>();
     let containerEl = $state.raw<HTMLElement>();
     let chatEl = $state.raw<HTMLElement>();
@@ -167,6 +169,16 @@
         }
     });
 
+    onEvent<string>('chat_message_rollback', (e) => {
+        const id = e.payload;
+        if (chat) {
+            chat = {
+                ...chat,
+                messages: chat.messages.filter((m) => m.id !== id),
+            };
+        }
+    });
+
     const updateWindowSize = (width: number, height: number) => {
         return getCurrentWebviewWindow().setSize(new LogicalSize(width, height));
     };
@@ -302,17 +314,8 @@
     >
         <div
             data-multiline={(editor ? hasMultilines(editor) : false) ? '' : undefined}
-            class="flex gap-2 absolute right-6 bottom-4 not-[[data-multiline]]:bottom-1/2 not-[[data-multiline]]:translate-y-1/2 z-10"
+            class="flex items-center gap-2 absolute right-6 bottom-4 not-[[data-multiline]]:bottom-1/2 not-[[data-multiline]]:translate-y-1/2 z-10"
         >
-            <button
-                type="button"
-                class="p-1 size-8 disabled:text-base-fg-muted"
-                onclick={() => {
-                    showAgentScreen = !showAgentScreen;
-                }}
-            >
-                <Bot class="size-full" />
-            </button>
             <button
                 type="button"
                 disabled={editor?.isEmpty ?? true}
@@ -322,6 +325,26 @@
                 <PaperAirplane class="size-full" />
             </button>
         </div>
+    </div>
+    <div class="px-6 py-2 flex items-center gap-2 border-t border-t-base-border">
+        <button
+            id="agent"
+            type="button"
+            class="p-1 size-8 disabled:text-base-fg-muted"
+            onclick={() => {
+                showAgentScreen = !showAgentScreen;
+            }}
+        >
+            <Bot class="size-full" />
+        </button>
+        {#if $currentAgent.data}
+            <label
+                for="agent"
+                class="bg-base-dark dark:bg-base-light text-base-fg-muted text-xs p-1 leading-none content-center"
+            >
+                {$currentAgent.data.model}
+            </label>
+        {/if}
     </div>
 </main>
 

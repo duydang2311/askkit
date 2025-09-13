@@ -1,5 +1,6 @@
 <script lang="ts">
-    import { invalidateQueries } from '$lib/common/query';
+    import { useCurrentAgent } from '$lib/common/queries';
+    import { useRuntime } from '$lib/common/runtime';
     import Select from '$lib/components/Select.svelte';
     import { createQuery } from '@tanstack/svelte-query';
     import { invoke } from '@tauri-apps/api/core';
@@ -7,6 +8,7 @@
     import { portal } from '@zag-js/svelte';
     import { toStore } from 'svelte/store';
 
+    const { queryClient } = useRuntime();
     const agents = createQuery({
         queryKey: ['agents'],
         queryFn: () =>
@@ -18,10 +20,7 @@
                 }[]
             >('get_agents'),
     });
-    const currentAgent = createQuery({
-        queryKey: ['current-agent'],
-        queryFn: () => invoke<{ id: string } | null>('get_current_agent'),
-    });
+    const currentAgent = useCurrentAgent();
     const agentConfig = createQuery(
         toStore(() => ({
             enabled: $currentAgent.data != null,
@@ -33,6 +32,7 @@
         }))
     );
     let select = $state.raw<Select<{ id: string; provider: string; model: string }>>();
+    const selectApi = $derived(select?.api());
 </script>
 
 <div class="px-6 py-4">
@@ -49,7 +49,7 @@
                 value={() => ($currentAgent.data ? [$currentAgent.data.id] : undefined)}
                 onSelect={async (details) => {
                     await invoke('update_current_agent', { agentId: details.value });
-                    await invalidateQueries({ queryKey: ['agent-config'] });
+                    await queryClient.invalidateQueries({ queryKey: ['current-agent'] });
                 }}
                 bind:this={select}
             >
@@ -91,45 +91,57 @@
                 {/snippet}
             </Select>
             <div class="mt-4 flex flex-col gap-2">
-                {#if select.api()?.hasSelectedItems}
-                    {@const item = select.api().selectedItems[0]}
-                    <div>
-                        <p class="c-label">ID</p>
-                        <p>{item.id}</p>
-                    </div>
-                    <div>
-                        <p class="c-label">Provider</p>
-                        <p>{item.provider}</p>
-                    </div>
+                {#if selectApi?.hasSelectedItems}
+                    {@const item = selectApi.selectedItems[0]}
+                    <!-- why tf do i even need to null guard this but it happens -->
+                    {#if item}
+                        <div>
+                            <p class="c-label">ID</p>
+                            <p>{item.id}</p>
+                        </div>
+                        <div>
+                            <p class="c-label">Provider</p>
+                            <p>{item.provider}</p>
+                        </div>
+                    {/if}
                 {/if}
             </div>
         </div>
-        {#if select.api()?.hasSelectedItems}
-            {@const item = select.api().selectedItems[0]}
-            <div>
-                <h2 class="mb-2 text-base-fg-muted font-medium">Parameters</h2>
-                {#if item.provider === 'gemini'}
-                    <div
-                        class="border border-base-border bg-base-light dark:bg-base-dark px-2 py-1
+        {#if selectApi?.hasSelectedItems}
+            {@const item = selectApi.selectedItems[0]}
+            {#if item}
+                <div>
+                    <h2 class="mb-2 text-base-fg-muted font-medium">Parameters</h2>
+                    {#if item.provider === 'gemini'}
+                        <div
+                            class="border border-base-border bg-base-light dark:bg-base-dark px-2 py-1
                         focus-within:outline-none focus-within:ring focus-within:ring-offset-2 focus-within:ring-offset-base focus-within:ring-base-border"
-                    >
-                        <label for="api_key" class="block c-label">API key</label>
-                        <input
-                            id="api_key"
-                            type="text"
-                            placeholder="Enter Gemini API key"
-                            class="w-full focus:outline-none placeholder:text-base-fg-muted"
-                            onblur={(e) => {
-                                invoke('update_agent_parameter', {
-                                    agentId: item.id,
-                                    key: 'api_key',
-                                    value: e.target.value,
-                                });
-                            }}
-                        />
-                    </div>
-                {/if}
-            </div>
+                        >
+                            <label for="api_key" class="block c-label">API key</label>
+                            <input
+                                id="api_key"
+                                type="text"
+                                placeholder="Enter Gemini API key"
+                                class="w-full focus:outline-none placeholder:text-base-fg-muted"
+                                value={$agentConfig.data?.api_key ?? undefined}
+                                onblur={async (e) => {
+                                    if (
+                                        e.currentTarget.value === ($agentConfig.data?.api_key ?? '')
+                                    ) {
+                                        return;
+                                    }
+                                    await invoke('upsert_agent_config', {
+                                        id: item.id,
+                                        upsert: {
+                                            api_key: e.currentTarget.value,
+                                        },
+                                    });
+                                }}
+                            />
+                        </div>
+                    {/if}
+                </div>
+            {/if}
         {/if}
     </div>
 </div>
