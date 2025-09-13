@@ -44,6 +44,8 @@ pub fn run() {
             agent::cmds::get_agents,
             agent::cmds::get_current_agent,
             agent::cmds::update_current_agent,
+            agent::cmds::get_agent_config,
+            agent::cmds::upsert_agent_config,
         ])
         .build(tauri::generate_context!())
         .expect("error while running tauri application")

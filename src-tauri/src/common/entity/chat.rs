@@ -8,7 +8,7 @@ pub struct ChatRow {
     pub title: String,
 }
 
-#[derive(Serialize, Clone)]
+#[derive(sqlx::FromRow, Serialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct ChatMessageRow {
     pub created_at: i64,

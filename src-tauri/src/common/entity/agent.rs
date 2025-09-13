@@ -12,13 +12,12 @@ pub struct AgentRow {
     pub model: String,
 }
 
-#[derive(sqlx::FromRow)]
+#[derive(sqlx::FromRow, Serialize, Debug)]
 pub struct AgentConfigRow {
     pub created_at: i64,
     pub updated_at: i64,
     pub agent_id: Uuid,
     pub api_key: Option<String>,
-    pub params: Option<String>,
 }
 
 #[derive(sqlx::FromRow)]

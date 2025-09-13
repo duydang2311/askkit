@@ -8,11 +8,10 @@ use tauri::AppHandle;
 use tauri::Emitter;
 use uuid::Uuid;
 
-use crate::common::unit_of_work::UnitOfWorkFactory;
 use crate::{
-    agent::{Agent, AgentApi, AgentContext},
+    agent::{Agent, AgentApi, AgentContext, AgentTextGenParamsApi},
     chat::repo::{ChatRepo, CreateChatMessage, UpdateChatMessage},
-    common::{entity::chat::ChatMessageStatus, error::AppError},
+    common::{entity::chat::ChatMessageStatus, error::AppError, unit_of_work::UnitOfWorkFactory},
 };
 
 #[derive(Serialize, Clone)]
@@ -49,52 +48,62 @@ pub async fn send_chat_message(
     static_chat_repo: tauri::State<'_, Arc<dyn ChatRepo>>,
 ) -> Result<(), AppError> {
     let unit_of_work = unit_of_work_factory.create().await?;
-    let agent_repo = unit_of_work.agent_repo();
-    let current_agent = agent_repo
-        .get_current_agent()
-        .await?
-        .ok_or_else(|| AppError::AgentRequired)?;
-    let agent = Agent::from(current_agent);
-    let chat_repo = unit_of_work.chat_repo();
-    let user_chat_msg = chat_repo
-        .create_chat_message(CreateChatMessage {
-            id: Uuid::new_v4(),
-            chat_id,
-            role: "user".into(),
-            content: content.clone(),
-            status: ChatMessageStatus::Completed,
-        })
-        .await?;
+    let (user_chat_msg, mut stream) = {
+        let agent_repo = unit_of_work.agent_repo();
+        let current_agent = agent_repo
+            .get_current_agent()
+            .await?
+            .ok_or_else(|| AppError::AgentRequired)?;
+        let agent = Agent::from(current_agent);
+        let chat_repo = unit_of_work.chat_repo();
+        let user_chat_msg = chat_repo
+            .create_chat_message(CreateChatMessage {
+                id: Uuid::new_v4(),
+                chat_id,
+                role: "user".into(),
+                content: content.clone(),
+                status: ChatMessageStatus::Completed,
+            })
+            .await?;
+        let _ = app_handle
+            .emit("chat_message_created", &user_chat_msg)
+            .inspect_err(|e| {
+                log::error!("failed to emit response chunk: {e}");
+            });
 
-    let config = agent
-        .create_text_gen_params(agent_context.inner().clone(), chat_id)
-        .await?
-        .ok_or_else(|| AppError::AgentTextGenParamsRequired)?;
-    let mut stream = agent
-        .generate_text(agent_context.inner().clone(), config)
-        .await?;
+        let mut config = agent
+            .create_text_gen_params(agent_context.inner().clone(), chat_id)
+            .await?
+            .ok_or_else(|| AppError::AgentTextGenParamsRequired)?;
+        config.push_message_str(&content);
+        let stream = agent
+            .generate_text(agent_context.inner().clone(), config)
+            .await?;
+        (user_chat_msg, stream)
+    };
 
-    let model_chat_msg = chat_repo
-        .create_chat_message(CreateChatMessage {
-            id: Uuid::new_v4(),
-            chat_id,
-            role: "model".into(),
-            content: String::new(),
-            status: ChatMessageStatus::Pending,
-        })
-        .await?;
+    let model_chat_msg = {
+        let chat_repo = unit_of_work.chat_repo();
+        chat_repo
+            .create_chat_message(CreateChatMessage {
+                id: Uuid::new_v4(),
+                chat_id,
+                role: "model".into(),
+                content: String::new(),
+                status: ChatMessageStatus::Pending,
+            })
+            .await?
+    };
     let _ = app_handle
         .emit("chat_message_created", model_chat_msg.clone())
         .inspect_err(|e| {
             log::error!("failed to emit response chunk: {e}");
         });
 
-    unit_of_work.commit().await?;
-    let _ = app_handle
-        .emit("chat_message_created", &user_chat_msg)
-        .inspect_err(|e| {
-            log::error!("failed to emit response chunk: {e}");
-        });
+    unit_of_work.commit().await.inspect_err(|_| {
+        let _ = app_handle.emit("chat_message_rollback", &user_chat_msg.id);
+        let _ = app_handle.emit("chat_message_rollback", &model_chat_msg.id);
+    })?;
     let chat_repo = static_chat_repo.inner().clone();
     tauri::async_runtime::spawn(async move {
         let mut text = String::new();

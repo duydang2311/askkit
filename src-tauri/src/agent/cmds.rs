@@ -1,15 +1,21 @@
 use std::sync::Arc;
 
+use serde::Deserialize;
 use tauri::State;
 use uuid::Uuid;
 
 use crate::{
-    agent::repo::{AgentRepo, UpdateCurrentAgent},
+    agent::repo::{AgentRepo, UpdateCurrentAgent, UpsertAgentConfig},
     common::{
         entity::agent::{AgentConfigRow, AgentRow},
         error::AppError,
     },
 };
+
+#[derive(Deserialize)]
+pub struct UpsertAgentConfigCmd {
+    pub api_key: Option<String>,
+}
 
 #[tauri::command]
 pub async fn get_agents(
@@ -42,4 +48,20 @@ pub async fn get_agent_config(
     agent_repo: State<'_, Arc<dyn AgentRepo>>,
 ) -> Result<Option<AgentConfigRow>, AppError> {
     agent_repo.get_agent_config(id).await
+}
+
+#[tauri::command]
+pub async fn upsert_agent_config(
+    id: Uuid,
+    upsert: UpsertAgentConfigCmd,
+    agent_repo: State<'_, Arc<dyn AgentRepo>>,
+) -> Result<u64, AppError> {
+    agent_repo
+        .upsert_agent_config(
+            id,
+            UpsertAgentConfig {
+                api_key: upsert.api_key,
+            },
+        )
+        .await
 }

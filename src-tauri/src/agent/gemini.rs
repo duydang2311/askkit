@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::Database;
 use uuid::Uuid;
 
-use crate::agent::{AgentApi, AgentContext, AgentTextGenResult};
+use crate::agent::{AgentApi, AgentContext, AgentTextGenParamsApi, AgentTextGenResult};
 use crate::common::entity::agent::AgentConfigRow;
 use crate::common::error::AppError;
 
@@ -83,6 +83,7 @@ impl AgentApi for GeminiAgent {
                 })
                 .collect(),
         };
+        println!("body: {:?}", serde_json::to_string(&body));
         let stream = client
             .request(
                 reqwest::Method::POST,
@@ -99,6 +100,7 @@ impl AgentApi for GeminiAgent {
             .map_ok(|bytes| {
                 let results: Vec<Result<AgentTextGenResult, AppError>> = match std::str::from_utf8(&bytes) {
                     Ok(text) => {
+                        println!("Gemini response chunk: {}", text);
                         text.lines()
                             .filter_map(|line| line.strip_prefix("data:").map(str::trim))
                             .filter(|line| !line.is_empty())
@@ -151,5 +153,20 @@ impl AgentApi for GeminiAgent {
             }
             None => None,
         })
+    }
+}
+
+impl AgentTextGenParamsApi for GeminiTextGenParams {
+    type Message = GeminiTextGenParamsMessage;
+
+    fn push_message(&mut self, message: Self::Message) {
+        self.messages.push(message);
+    }
+
+    fn push_message_str(&mut self, message: &str) {
+        self.messages.push(Self::Message {
+            role: "user".to_string(),
+            content: message.to_string()
+        });
     }
 }

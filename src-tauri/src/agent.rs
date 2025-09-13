@@ -11,7 +11,7 @@ use uuid::Uuid;
 
 use crate::{
     agent::{
-        gemini::{GeminiAgent, GeminiTextGenParams},
+        gemini::{GeminiAgent, GeminiTextGenParams, GeminiTextGenParamsMessage},
         repo::AgentRepo,
     },
     chat::repo::ChatRepo,
@@ -32,6 +32,17 @@ pub enum Agent {
 
 pub enum AgentTextGenParams {
     Gemini(GeminiTextGenParams),
+}
+
+pub enum AgentTextGenParamsMessage {
+    Gemini(GeminiTextGenParamsMessage),
+}
+
+pub trait AgentTextGenParamsApi {
+    type Message;
+
+    fn push_message(&mut self, message: Self::Message);
+    fn push_message_str(&mut self, message: &str);
 }
 
 #[async_trait]
@@ -124,6 +135,26 @@ impl AgentApi for Agent {
                 .create_text_gen_params(context, chat_id)
                 .await
                 .map(|a| a.map(|a| AgentTextGenParams::Gemini(a))),
+        }
+    }
+}
+
+impl AgentTextGenParamsApi for AgentTextGenParams {
+    type Message = AgentTextGenParamsMessage;
+
+    fn push_message(&mut self, message: Self::Message) {
+        match (self, message) {
+            (AgentTextGenParams::Gemini(params), AgentTextGenParamsMessage::Gemini(message)) => {
+                params.push_message(message);
+            }
+        }
+    }
+
+    fn push_message_str(&mut self, message: &str) {
+        match self {
+            AgentTextGenParams::Gemini(params) => {
+                params.push_message_str(message);
+            }
         }
     }
 }

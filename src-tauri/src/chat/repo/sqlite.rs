@@ -86,25 +86,11 @@ async fn get_chat_messages<'a, E>(
 where
     E: Executor<'a, Database = Sqlite>,
 {
-    let messages = sqlx::query_as::<_, (i64, Uuid, String, String, ChatMessageStatus)>(
-        "select created_at, id, role, content, status from chat_messages where chat_id = ?1",
-    )
-    .bind(&chat_id)
-    .fetch_all(executor)
-    .await
-    .map_err(AppError::from)?;
-
-    Ok(messages
-        .into_iter()
-        .map(|(created_at, id, role, content, status)| ChatMessageRow {
-            created_at,
-            id,
-            chat_id,
-            role,
-            content,
-            status,
-        })
-        .collect())
+    sqlx::query_as::<_, ChatMessageRow>("select * from chat_messages where chat_id = ?1")
+        .bind(&chat_id)
+        .fetch_all(executor)
+        .await
+        .map_err(AppError::from)
 }
 
 async fn create_chat_message<'a, E>(

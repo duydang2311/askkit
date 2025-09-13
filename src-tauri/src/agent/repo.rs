@@ -36,11 +36,18 @@ pub struct UpdateAgentProvider {
 pub struct CreateAgentConfig {
     pub agent_id: Uuid,
     pub api_key: Option<String>,
-    pub params: Option<String>,
 }
 
 pub struct UpdateCurrentAgent {
     pub agent_id: Uuid,
+}
+
+pub struct UpdateAgentConfig {
+    pub api_key: Option<String>,
+}
+
+pub struct UpsertAgentConfig {
+    pub api_key: Option<String>,
 }
 
 #[async_trait]
@@ -65,4 +72,14 @@ pub trait AgentRepo: Send + Sync {
         create: CreateAgentConfig,
     ) -> Result<AgentConfigRow, AppError>;
     async fn get_agent_config(&self, agent_id: Uuid) -> Result<Option<AgentConfigRow>, AppError>;
+    async fn update_agent_config(
+        &self,
+        agent_id: Uuid,
+        update: UpdateAgentConfig,
+    ) -> Result<u64, AppError>;
+    async fn upsert_agent_config(
+        &self,
+        agent_id: Uuid,
+        update: UpsertAgentConfig,
+    ) -> Result<u64, AppError>;
 }

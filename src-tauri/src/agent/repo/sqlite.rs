@@ -8,7 +8,7 @@ use uuid::Uuid;
 use crate::{
     agent::repo::{
         AgentRepo, CreateAgent, CreateAgentConfig, CreateAgentProvider, UpdateAgent,
-        UpdateAgentProvider, UpdateCurrentAgent,
+        UpdateAgentConfig, UpdateAgentProvider, UpdateCurrentAgent, UpsertAgentConfig,
     },
     cipher::Cipher,
     common::{
@@ -90,6 +90,22 @@ impl AgentRepo for SqliteAgentRepo {
     async fn update_current_agent(&self, update: UpdateCurrentAgent) -> Result<(), AppError> {
         update_current_agent(&*self.db_pool, update).await
     }
+
+    async fn update_agent_config(
+        &self,
+        agent_id: Uuid,
+        update: UpdateAgentConfig,
+    ) -> Result<u64, AppError> {
+        update_agent_config(&*self.db_pool, agent_id, update).await
+    }
+
+    async fn upsert_agent_config(
+        &self,
+        agent_id: Uuid,
+        upsert: UpsertAgentConfig,
+    ) -> Result<u64, AppError> {
+        upsert_agent_config(&*self.db_pool, agent_id, upsert).await
+    }
 }
 
 #[async_trait]
@@ -152,6 +168,24 @@ impl<'a> AgentRepo for TransactionalSqliteAgentRepo<'a> {
     async fn update_current_agent(&self, update: UpdateCurrentAgent) -> Result<(), AppError> {
         let mut tx = self.tx.try_lock().map_err(AppError::from)?;
         update_current_agent(&mut **tx, update).await
+    }
+
+    async fn update_agent_config(
+        &self,
+        agent_id: Uuid,
+        update: UpdateAgentConfig,
+    ) -> Result<u64, AppError> {
+        let mut tx = self.tx.try_lock().map_err(AppError::from)?;
+        update_agent_config(&mut **tx, agent_id, update).await
+    }
+
+    async fn upsert_agent_config(
+        &self,
+        agent_id: Uuid,
+        upsert: UpsertAgentConfig,
+    ) -> Result<u64, AppError> {
+        let mut tx = self.tx.try_lock().map_err(AppError::from)?;
+        upsert_agent_config(&mut **tx, agent_id, upsert).await
     }
 }
 
@@ -274,10 +308,9 @@ async fn create_agent_config<'a, E>(
 where
     E: Executor<'a, Database = Sqlite>,
 {
-    let (created_at, updated_at): (i64, i64) = sqlx::query_as("insert into agent_configs (agent_id, api_key, params) values (?1, ?2, ?3) returning created_at, updated_at")
+    let (created_at, updated_at): (i64, i64) = sqlx::query_as("insert into agent_configs (agent_id, api_key) values (?1, ?2) returning created_at, updated_at")
         .bind(&create.agent_id)
         .bind(&create.api_key)
-        .bind(&create.params)
         .fetch_one(executor)
         .await
         .map_err(AppError::from)?;
@@ -286,7 +319,6 @@ where
         updated_at,
         agent_id: create.agent_id,
         api_key: create.api_key,
-        params: create.params,
     })
 }
 
@@ -317,4 +349,59 @@ where
         .await
         .map_err(AppError::from)?;
     Ok(())
+}
+
+async fn update_agent_config<'a, E>(
+    executor: E,
+    agent_id: Uuid,
+    update: UpdateAgentConfig,
+) -> Result<u64, AppError>
+where
+    E: Executor<'a, Database = Sqlite>,
+{
+    let mut qb = sqlx::QueryBuilder::new("update agent_configs set ");
+    let mut separated = qb.separated(", ");
+    if let Some(api_key) = update.api_key {
+        separated.push("api_key = ").push_bind_unseparated(api_key);
+    }
+    qb.push(" where agent_id = ").push_bind(&agent_id);
+    let result = qb.build().execute(executor).await.map_err(AppError::from)?;
+    Ok(result.rows_affected())
+}
+
+async fn upsert_agent_config<'a, E>(
+    executor: E,
+    agent_id: Uuid,
+    update: UpsertAgentConfig,
+) -> Result<u64, AppError>
+where
+    E: Executor<'a, Database = Sqlite>,
+{
+    let mut qb = sqlx::QueryBuilder::new("insert into agent_configs (");
+    {
+        let mut fields = qb.separated(", ");
+        fields.push("agent_id");
+        if let Some(_) = update.api_key {
+            fields.push("api_key");
+        }
+    }
+
+    {
+        qb.push(") values (");
+        let mut values = qb.separated(", ");
+        values.push_bind(&agent_id);
+        if let Some(api_key) = &update.api_key {
+            values.push_bind(api_key);
+        }
+    }
+
+    {
+        qb.push(") on conflict (agent_id) do update set ");
+        let mut updates = qb.separated(", ");
+        if let Some(_) = &update.api_key {
+            updates.push("api_key = excluded.api_key");
+        }
+    }
+    let result = qb.build().execute(executor).await.map_err(AppError::from)?;
+    Ok(result.rows_affected())
 }
