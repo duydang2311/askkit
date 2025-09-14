@@ -1,6 +1,8 @@
 <script lang="ts">
     import { useCurrentAgent } from '$lib/common/queries';
     import { useRuntime } from '$lib/common/runtime';
+    import { createPasswordInput } from '$lib/components/builders.svelte';
+    import { Eye, EyeSlash } from '$lib/components/icons';
     import Select from '$lib/components/Select.svelte';
     import { createQuery } from '@tanstack/svelte-query';
     import { invoke } from '@tauri-apps/api/core';
@@ -9,6 +11,7 @@
     import { toStore } from 'svelte/store';
 
     const { queryClient } = useRuntime();
+    const id = $props.id();
     const agents = createQuery({
         queryKey: ['agents'],
         queryFn: () =>
@@ -33,6 +36,26 @@
     );
     let select = $state.raw<Select<{ id: string; provider: string; model: string }>>();
     const selectApi = $derived(select?.api());
+    let passwordInputVisible = $state.raw(false);
+    let decryptedApiKey = $state.raw<string | null>(null);
+    const passwordInput = createPasswordInput({
+        id,
+        get visible() {
+            return passwordInputVisible;
+        },
+        onVisibilityChange: async (details) => {
+            if (details.visible) {
+                decryptedApiKey = $agentConfig.data?.api_key
+                    ? ((await invoke<string>('decrypt_agent_ciphertext', {
+                          ciphertext: $agentConfig.data.api_key,
+                      }).catch(console.error)) ?? null)
+                    : null;
+            } else {
+                decryptedApiKey = null;
+            }
+            passwordInputVisible = details.visible;
+        },
+    });
 </script>
 
 <div class="px-6 py-4">
@@ -114,30 +137,48 @@
                     <h2 class="mb-2 text-base-fg-muted font-medium">Parameters</h2>
                     {#if item.provider === 'gemini'}
                         <div
-                            class="border border-base-border bg-base-light dark:bg-base-dark px-2 py-1
-                        focus-within:outline-none focus-within:ring focus-within:ring-offset-2 focus-within:ring-offset-base focus-within:ring-base-border"
+                            {...passwordInput.getRootProps()}
+                            class={[
+                                'border border-base-border bg-base-light dark:bg-base-dark px-2 py-1',
+                                'focus-within:outline-none focus-within:ring focus-within:ring-offset-2 focus-within:ring-offset-base focus-within:ring-base-border',
+                            ]}
                         >
-                            <label for="api_key" class="block c-label">API key</label>
-                            <input
-                                id="api_key"
-                                type="text"
-                                placeholder="Enter Gemini API key"
-                                class="w-full focus:outline-none placeholder:text-base-fg-muted"
-                                value={$agentConfig.data?.api_key ?? undefined}
-                                onblur={async (e) => {
-                                    if (
-                                        e.currentTarget.value === ($agentConfig.data?.api_key ?? '')
-                                    ) {
-                                        return;
-                                    }
-                                    await invoke('upsert_agent_config', {
-                                        id: item.id,
-                                        upsert: {
-                                            api_key: e.currentTarget.value,
-                                        },
-                                    });
-                                }}
-                            />
+                            <label {...passwordInput.getLabelProps()} class="block c-label">
+                                API key
+                            </label>
+                            <div {...passwordInput.getControlProps()} class="flex gap-2">
+                                <input
+                                    {...passwordInput.getInputProps()}
+                                    placeholder="Enter Gemini API key"
+                                    value={passwordInputVisible
+                                        ? decryptedApiKey
+                                        : ($agentConfig.data?.api_key ?? undefined)}
+                                    class="w-full focus:outline-none placeholder:text-base-fg-muted"
+                                    onblur={async (e) => {
+                                        if (
+                                            e.currentTarget.value ===
+                                            ($agentConfig.data?.api_key ?? '')
+                                        ) {
+                                            return;
+                                        }
+                                        await invoke('upsert_agent_config', {
+                                            id: item.id,
+                                            upsert: {
+                                                api_key: e.currentTarget.value,
+                                            },
+                                        });
+                                    }}
+                                />
+                                <button {...passwordInput.getVisibilityTriggerProps()}>
+                                    <span {...passwordInput.getIndicatorProps()}>
+                                        {#if passwordInput.visible}
+                                            <Eye />
+                                        {:else}
+                                            <EyeSlash />
+                                        {/if}
+                                    </span>
+                                </button>
+                            </div>
                         </div>
                     {/if}
                 </div>
