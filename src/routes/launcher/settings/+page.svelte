@@ -1,9 +1,8 @@
 <script lang="ts">
     import { useCurrentAgent } from '$lib/common/queries';
     import { useRuntime } from '$lib/common/runtime';
-    import { createPasswordInput } from '$lib/components/builders.svelte';
+    import { createPasswordInput, createSelect } from '$lib/components/builders.svelte';
     import { Eye, EyeSlash } from '$lib/components/icons';
-    import Select from '$lib/components/Select.svelte';
     import { createQuery } from '@tanstack/svelte-query';
     import { invoke } from '@tauri-apps/api/core';
     import { ListCollection } from '@zag-js/collection';
@@ -11,7 +10,7 @@
     import { toStore } from 'svelte/store';
 
     const { queryClient } = useRuntime();
-    const id = $props.id();
+
     const agents = createQuery({
         queryKey: ['agents'],
         queryFn: () =>
@@ -34,14 +33,33 @@
                 }),
         }))
     );
-    let select = $state.raw<Select<{ id: string; provider: string; model: string }>>();
-    const selectApi = $derived(select?.api());
-    let passwordInputVisible = $state.raw(false);
+
+    const id = $props.id();
+    const select = createSelect({
+        id,
+        get collection() {
+            return new ListCollection({
+                items: $agents.data ?? [],
+                itemToString: (item) => item.model,
+                itemToValue: (item) => item.id,
+            });
+        },
+        get value() {
+            return $currentAgent.data ? [$currentAgent.data.id] : undefined;
+        },
+        onSelect: async (details) => {
+            showApiKey = false;
+            await invoke('update_current_agent', { agentId: details.value });
+            await queryClient.invalidateQueries({ queryKey: ['current-agent'] });
+        },
+    });
+
+    let showApiKey = $state.raw(false);
     let decryptedApiKey = $state.raw<string | null>(null);
     const passwordInput = createPasswordInput({
         id,
         get visible() {
-            return passwordInputVisible;
+            return showApiKey;
         },
         onVisibilityChange: async (details) => {
             if (details.visible) {
@@ -53,7 +71,7 @@
             } else {
                 decryptedApiKey = null;
             }
-            passwordInputVisible = details.visible;
+            showApiKey = details.visible;
         },
     });
 </script>
@@ -62,60 +80,40 @@
     <div class="grid grid-cols-2 gap-4">
         <div>
             <h2 class="mb-2 text-base-fg-muted font-medium">Agent</h2>
-            <Select
-                collection={() =>
-                    new ListCollection({
-                        items: $agents.data ?? [],
-                        itemToString: (item) => item.model,
-                        itemToValue: (item) => item.id,
-                    })}
-                value={() => ($currentAgent.data ? [$currentAgent.data.id] : undefined)}
-                onSelect={async (details) => {
-                    await invoke('update_current_agent', { agentId: details.value });
-                    await queryClient.invalidateQueries({ queryKey: ['current-agent'] });
-                }}
-                bind:this={select}
-            >
-                {#snippet children(api)}
-                    <div {...api.getRootProps()}>
-                        <div {...api.getControlProps()}>
-                            <button
-                                {...api.getTriggerProps()}
-                                class="px-2 py-1 min-w-64 w-full text-left bg-base-light dark:bg-base-dark border border-base-border
+            <div {...select.getRootProps()}>
+                <div {...select.getControlProps()}>
+                    <button
+                        {...select.getTriggerProps()}
+                        class="px-2 py-1 min-w-64 w-full text-left bg-base-light dark:bg-base-dark border border-base-border
                                 hover:bg-base-hover data-[state=open]:bg-base-dark
                                 focus-visible:outline-none focus-visible:ring focus-visible:ring-offset-2 focus-visible:ring-offset-base focus-visible:ring-base-border"
+                    >
+                        <label {...select.getLabelProps()} class="block c-label"> Model </label>
+                        <span>
+                            {select.valueAsString || 'Select agent'}
+                        </span>
+                    </button>
+                </div>
+                <div use:portal {...select.getPositionerProps()}>
+                    <ul
+                        {...select.getContentProps()}
+                        class="w-(--reference-width) bg-base-light dark:bg-base-dark min-w-max border border-base-border p-1 focus:outline-none"
+                    >
+                        {#each $agents.data ?? [] as item (item.id)}
+                            <li
+                                {...select.getItemProps({ item })}
+                                class="px-2 py-1 data-[highlighted]:bg-base-hover"
                             >
-                                <label {...api.getLabelProps()} class="block c-label">
-                                    Model
-                                </label>
-                                <span>
-                                    {api.valueAsString || 'Select agent'}
-                                </span>
-                            </button>
-                        </div>
-                        <div use:portal {...api.getPositionerProps()}>
-                            <ul
-                                {...api.getContentProps()}
-                                class="w-(--reference-width) bg-base-light dark:bg-base-dark min-w-max border border-base-border p-1 focus:outline-none"
-                            >
-                                {#each $agents.data ?? [] as item (item.id)}
-                                    <li
-                                        {...api.getItemProps({ item })}
-                                        class="px-2 py-1 data-[highlighted]:bg-base-hover"
-                                    >
-                                        <span {...api.getItemTextProps({ item })}>{item.model}</span
-                                        >
-                                        <span {...api.getItemIndicatorProps({ item })}>✓</span>
-                                    </li>
-                                {/each}
-                            </ul>
-                        </div>
-                    </div>
-                {/snippet}
-            </Select>
+                                <span {...select.getItemTextProps({ item })}>{item.model}</span>
+                                <span {...select.getItemIndicatorProps({ item })}>✓</span>
+                            </li>
+                        {/each}
+                    </ul>
+                </div>
+            </div>
             <div class="mt-4 flex flex-col gap-2">
-                {#if selectApi?.hasSelectedItems}
-                    {@const item = selectApi.selectedItems[0]}
+                {#if select.hasSelectedItems}
+                    {@const item = select.selectedItems[0]}
                     <!-- why tf do i even need to null guard this but it happens -->
                     {#if item}
                         <div>
@@ -130,8 +128,8 @@
                 {/if}
             </div>
         </div>
-        {#if selectApi?.hasSelectedItems}
-            {@const item = selectApi.selectedItems[0]}
+        {#if select.hasSelectedItems}
+            {@const item = select.selectedItems[0]}
             {#if item}
                 <div>
                     <h2 class="mb-2 text-base-fg-muted font-medium">Parameters</h2>
@@ -150,7 +148,7 @@
                                 <input
                                     {...passwordInput.getInputProps()}
                                     placeholder="Enter Gemini API key"
-                                    value={passwordInputVisible
+                                    value={showApiKey
                                         ? decryptedApiKey
                                         : ($agentConfig.data?.api_key ?? undefined)}
                                     class="w-full focus:outline-none placeholder:text-base-fg-muted"
@@ -166,6 +164,9 @@
                                             upsert: {
                                                 api_key: e.currentTarget.value,
                                             },
+                                        });
+                                        await queryClient.invalidateQueries({
+                                            queryKey: ['agent-config', { id: item.id }],
                                         });
                                     }}
                                 />
