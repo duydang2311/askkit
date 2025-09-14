@@ -1,3 +1,4 @@
+use aes_gcm::aes::cipher;
 use async_trait::async_trait;
 use futures_util::{self, stream, Stream, TryStreamExt};
 use serde::{Deserialize, Serialize};
@@ -133,7 +134,9 @@ impl AgentApi for GeminiAgent {
             Some(config) => {
                 let chat_messages = context.chat_repo.get_chat_messages(chat_id).await?;
                 Some(Self::TextGenParams {
-                    api_key: config.api_key.unwrap_or_default(),
+                    api_key: context
+                        .cipher
+                        .decrypt_base64_str(&config.api_key.unwrap_or_default())?,
                     messages: chat_messages
                         .into_iter()
                         .map(|a| GeminiTextGenParamsMessage {
@@ -162,7 +165,7 @@ impl AgentTextGenParamsApi for GeminiTextGenParams {
     fn push_message_str(&mut self, message: &str) {
         self.messages.push(Self::Message {
             role: "user".to_string(),
-            content: message.to_string()
+            content: message.to_string(),
         });
     }
 }

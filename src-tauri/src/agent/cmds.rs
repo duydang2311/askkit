@@ -1,11 +1,11 @@
 use std::sync::Arc;
-
 use serde::Deserialize;
 use tauri::State;
 use uuid::Uuid;
 
 use crate::{
     agent::repo::{AgentRepo, UpdateCurrentAgent, UpsertAgentConfig},
+    cipher::Cipher,
     common::{
         entity::agent::{AgentConfigRow, AgentRow},
         error::AppError,
@@ -55,13 +55,25 @@ pub async fn upsert_agent_config(
     id: Uuid,
     upsert: UpsertAgentConfigCmd,
     agent_repo: State<'_, Arc<dyn AgentRepo>>,
+    cipher: State<'_, Arc<dyn Cipher>>,
 ) -> Result<u64, AppError> {
     agent_repo
         .upsert_agent_config(
             id,
             UpsertAgentConfig {
-                api_key: upsert.api_key,
+                api_key: match upsert.api_key {
+                    Some(api_key) => Some(cipher.encrypt_str_base64(&api_key)?),
+                    None => None,
+                },
             },
         )
         .await
+}
+
+#[tauri::command]
+pub async fn decrypt_agent_ciphertext(
+    ciphertext: String,
+    cipher: State<'_, Arc<dyn Cipher>>,
+) -> Result<String, AppError> {
+    cipher.decrypt_base64_str(&ciphertext)
 }

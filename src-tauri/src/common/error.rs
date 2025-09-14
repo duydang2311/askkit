@@ -43,6 +43,8 @@ pub enum AppError {
     TryLock(tokio::sync::TryLockError),
     #[error("Transaction is still in use")]
     TransactionInUse,
+    #[error("Base64 decode error")]
+    DecodeBase64(base64::DecodeError),
     #[error("Unknown error")]
     Unknown(Option<Box<dyn std::error::Error + Send + Sync>>),
 }
@@ -114,6 +116,12 @@ impl From<sqlx::Error> for AppError {
 impl From<tokio::sync::TryLockError> for AppError {
     fn from(value: tokio::sync::TryLockError) -> Self {
         AppError::TryLock(value)
+    }
+}
+
+impl From<base64::DecodeError> for AppError {
+    fn from(value: base64::DecodeError) -> Self {
+        AppError::DecodeBase64(value)
     }
 }
 
@@ -225,6 +233,11 @@ impl Serialize for AppError {
             AppError::TransactionInUse => {
                 state = serializer.serialize_struct("AppError", 1)?;
                 state.serialize_field("kind", "TransactionInUse")?;
+            }
+            AppError::DecodeBase64(error) => {
+                state = serializer.serialize_struct("AppError", 2)?;
+                state.serialize_field("kind", "DecodeBase64Error")?;
+                state.serialize_field("message", &error.to_string())?;
             }
             AppError::Unknown(Some(error)) => {
                 state = serializer.serialize_struct("AppError", 2)?;

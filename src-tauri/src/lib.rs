@@ -48,6 +48,7 @@ pub fn run() {
             agent::cmds::update_current_agent,
             agent::cmds::get_agent_config,
             agent::cmds::upsert_agent_config,
+            agent::cmds::decrypt_agent_ciphertext,
         ])
         .build(tauri::generate_context!())
         .expect("error while running tauri application")
@@ -179,6 +180,7 @@ fn setup_dependencies(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
         http_client_manager.clone(),
         agent_repo.clone(),
         chat_repo.clone(),
+        cipher.clone(),
     ));
     app.manage(db_pool);
     app.manage(cipher);

@@ -15,6 +15,7 @@ use crate::{
         repo::AgentRepo,
     },
     chat::repo::ChatRepo,
+    cipher::Cipher,
     common::{entity::agent::AgentRow, error::AppError, http::HttpClientManager},
 };
 
@@ -71,6 +72,7 @@ pub struct AgentContext {
     pub http_client_manager: Arc<HttpClientManager>,
     pub agent_repo: Arc<dyn AgentRepo>,
     pub chat_repo: Arc<dyn ChatRepo>,
+    pub cipher: Arc<dyn Cipher>,
 }
 
 impl AgentContext {
@@ -78,11 +80,13 @@ impl AgentContext {
         http_client_manager: Arc<HttpClientManager>,
         agent_repo: Arc<dyn AgentRepo>,
         chat_repo: Arc<dyn ChatRepo>,
+        cipher: Arc<dyn Cipher>,
     ) -> Self {
         Self {
             http_client_manager,
             agent_repo,
             chat_repo,
+            cipher,
         }
     }
 }
@@ -93,6 +97,7 @@ impl Clone for AgentContext {
             http_client_manager: Arc::clone(&self.http_client_manager),
             agent_repo: Arc::clone(&self.agent_repo),
             chat_repo: Arc::clone(&self.chat_repo),
+            cipher: Arc::clone(&self.cipher),
         }
     }
 }
