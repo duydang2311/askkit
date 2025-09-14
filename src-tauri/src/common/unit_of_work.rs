@@ -6,7 +6,6 @@ use tokio::sync::Mutex;
 use crate::{
     agent::repo::{sqlite::TransactionalSqliteAgentRepo, AgentRepo},
     chat::repo::{sqlite::TransactionalSqliteChatRepo, ChatRepo},
-    cipher::Cipher,
     common::error::AppError,
 };
 
@@ -24,26 +23,23 @@ pub trait UnitOfWorkFactory: Send + Sync {
 
 pub struct SqliteUnitOfWork {
     tx: Arc<Mutex<SqliteTransaction<'static>>>,
-    cipher: Arc<dyn Cipher>,
 }
 
 pub struct SqliteUnitOfWorkFactory {
     db_pool: Arc<Pool<Sqlite>>,
-    cipher: Arc<dyn Cipher>,
 }
 
 impl SqliteUnitOfWork {
-    pub fn new(tx: SqliteTransaction<'static>, cipher: Arc<dyn Cipher>) -> Self {
+    pub fn new(tx: SqliteTransaction<'static>) -> Self {
         Self {
             tx: Arc::new(Mutex::new(tx)),
-            cipher,
         }
     }
 }
 
 impl SqliteUnitOfWorkFactory {
-    pub fn new(db_pool: Arc<Pool<Sqlite>>, cipher: Arc<dyn Cipher>) -> Self {
-        Self { db_pool, cipher }
+    pub fn new(db_pool: Arc<Pool<Sqlite>>) -> Self {
+        Self { db_pool }
     }
 }
 
@@ -51,7 +47,7 @@ impl SqliteUnitOfWorkFactory {
 impl UnitOfWorkFactory for SqliteUnitOfWorkFactory {
     async fn create(&self) -> Result<Box<dyn UnitOfWork>, AppError> {
         let tx = self.db_pool.begin().await.map_err(AppError::from)?;
-        Ok(Box::new(SqliteUnitOfWork::new(tx, self.cipher.clone())))
+        Ok(Box::new(SqliteUnitOfWork::new(tx)))
     }
 }
 
@@ -62,10 +58,7 @@ impl UnitOfWork for SqliteUnitOfWork {
     }
 
     fn agent_repo(&self) -> Box<dyn AgentRepo> {
-        Box::new(TransactionalSqliteAgentRepo::new(
-            self.tx.clone(),
-            self.cipher.clone(),
-        ))
+        Box::new(TransactionalSqliteAgentRepo::new(self.tx.clone()))
     }
 
     async fn commit(self: Box<Self>) -> Result<(), AppError> {

@@ -10,7 +10,6 @@ use crate::{
         AgentRepo, CreateAgent, CreateAgentConfig, CreateAgentProvider, UpdateAgent,
         UpdateAgentConfig, UpdateAgentProvider, UpdateCurrentAgent, UpsertAgentConfig,
     },
-    cipher::Cipher,
     common::{
         entity::agent::{AgentConfigRow, AgentProviderRow, AgentRow},
         error::AppError,
@@ -19,23 +18,21 @@ use crate::{
 
 pub struct SqliteAgentRepo {
     db_pool: Arc<Pool<Sqlite>>,
-    cipher: Arc<dyn Cipher>,
 }
 
 pub struct TransactionalSqliteAgentRepo<'a> {
     tx: Arc<Mutex<SqliteTransaction<'a>>>,
-    cipher: Arc<dyn Cipher>,
 }
 
 impl SqliteAgentRepo {
-    pub fn new(db_pool: Arc<Pool<Sqlite>>, cipher: Arc<dyn Cipher>) -> Self {
-        Self { db_pool, cipher }
+    pub fn new(db_pool: Arc<Pool<Sqlite>>) -> Self {
+        Self { db_pool }
     }
 }
 
 impl<'a> TransactionalSqliteAgentRepo<'a> {
-    pub fn new(tx: Arc<Mutex<SqliteTransaction<'a>>>, cipher: Arc<dyn Cipher>) -> Self {
-        Self { tx, cipher }
+    pub fn new(tx: Arc<Mutex<SqliteTransaction<'a>>>) -> Self {
+        Self { tx }
     }
 }
 
@@ -73,7 +70,7 @@ impl AgentRepo for SqliteAgentRepo {
         id: String,
         update: UpdateAgentProvider,
     ) -> Result<(), AppError> {
-        update_provider(&*self.db_pool, id, update, self.cipher.as_ref()).await
+        update_provider(&*self.db_pool, id, update).await
     }
 
     async fn create_agent_config(
@@ -149,7 +146,7 @@ impl<'a> AgentRepo for TransactionalSqliteAgentRepo<'a> {
         update: UpdateAgentProvider,
     ) -> Result<(), AppError> {
         let mut tx = self.tx.try_lock().map_err(AppError::from)?;
-        update_provider(&mut **tx, id, update, self.cipher.as_ref()).await
+        update_provider(&mut **tx, id, update).await
     }
 
     async fn create_agent_config(
@@ -284,7 +281,6 @@ async fn update_provider<'a, E>(
     executor: E,
     id: String,
     update: UpdateAgentProvider,
-    cipher: &dyn Cipher,
 ) -> Result<(), AppError>
 where
     E: Executor<'a, Database = Sqlite>,
@@ -292,9 +288,7 @@ where
     let mut qb = sqlx::QueryBuilder::new("update agent_providers set ");
     let mut separated = qb.separated(", ");
     if let Some(api_key) = update.api_key {
-        let encrypted =
-            String::from_utf8(cipher.encrypt(api_key.as_bytes())?).map_err(AppError::from)?;
-        separated.push("api_key = ").push_bind(encrypted);
+        separated.push("api_key = ").push_bind(api_key);
     }
     qb.push(" where id = ").push_bind(&id);
     qb.build().execute(executor).await.map_err(AppError::from)?;

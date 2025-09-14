@@ -166,12 +166,9 @@ fn setup_dependencies(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
     }));
     let cipher: Arc<dyn Cipher> = Arc::new(KeyringAesGcmCipher::new());
     let chat_repo: Arc<dyn ChatRepo> = Arc::new(SqliteChatRepo::new(db_pool.clone()));
-    let agent_repo: Arc<dyn AgentRepo> =
-        Arc::new(SqliteAgentRepo::new(db_pool.clone(), cipher.clone()));
-    let unit_of_work_factory: Arc<dyn UnitOfWorkFactory> = Arc::new(SqliteUnitOfWorkFactory::new(
-        db_pool.clone(),
-        cipher.clone(),
-    ));
+    let agent_repo: Arc<dyn AgentRepo> = Arc::new(SqliteAgentRepo::new(db_pool.clone()));
+    let unit_of_work_factory: Arc<dyn UnitOfWorkFactory> =
+        Arc::new(SqliteUnitOfWorkFactory::new(db_pool.clone()));
 
     tauri::async_runtime::block_on(async { sqlx::migrate!("./migrations").run(&*db_pool).await })
         .expect("failed to run migrations");
