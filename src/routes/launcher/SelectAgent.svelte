@@ -32,7 +32,7 @@
 
 <div {...select.getRootProps()}>
     <div {...select.getControlProps()} class="h-full">
-        <button {...select.getTriggerProps()} class="{button({ filled: true })} h-full text-xs">
+        <button {...select.getTriggerProps()} class="{button({ filled: true })} h-full">
             <span>
                 {$currentAgent.data?.model ?? 'Select agent'}
             </span>

@@ -23,7 +23,7 @@
     import BotOff from '~icons/lucide/bot-off';
     import { isAppError } from '../../../lib/common/error';
     import { onEvent } from '../../../lib/common/tauri';
-    import { persisted } from './persisted.svelte';
+    import { persisted } from '../persisted.svelte';
     import { button } from '$lib/common/styles';
 
     const editorBaseClass = 'w-screen max-h-64 overflow-auto pl-6 pr-28 py-4 focus:outline-none';
@@ -46,7 +46,7 @@
     watch(() => $chatMessages.data)(async () => {
         persisted.messages =
             $chatMessages.data == null
-                ? undefined
+                ? null
                 : await Promise.all(
                       $chatMessages.data.map(async (a) => {
                           const html = marked(a.content);
