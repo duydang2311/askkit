@@ -1,6 +1,6 @@
 import { createQuery } from '@tanstack/svelte-query';
 import { invoke } from '@tauri-apps/api/core';
-import type { Agent } from './models';
+import type { Agent, AgentProvider } from './models';
 
 export const useCurrentAgent = () => {
     return createQuery({
@@ -16,7 +16,7 @@ export const useAgents = () => {
             invoke<
                 {
                     id: string;
-                    provider: string;
+                    provider: AgentProvider;
                     model: string;
                 }[]
             >('get_agents'),

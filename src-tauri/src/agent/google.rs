@@ -10,34 +10,34 @@ const HEADER_CONTENT_TYPE: &str = "Content-Type";
 const HEADER_X_GOOG_API_KEY: &str = "X-goog-api-key";
 
 #[derive(Clone)]
-pub struct GeminiAgent {
+pub struct GoogleAgent {
     pub id: Uuid,
     pub model: String,
 }
 
-pub struct GeminiTextGenParams {
+pub struct GoogleTextGenParams {
     pub api_key: String,
-    pub messages: Vec<GeminiTextGenParamsMessage>,
+    pub messages: Vec<GoogleTextGenParamsMessage>,
 }
 
-pub struct GeminiTextGenParamsMessage {
+pub struct GoogleTextGenParamsMessage {
     pub role: String,
     pub content: String,
 }
 
 #[derive(Serialize)]
-pub struct GeminiTextGenRequestBody {
-    pub contents: Vec<GeminiTextGenRequestBodyContent>,
+pub struct GoogleTextGenRequestBody {
+    pub contents: Vec<GoogleTextGenRequestBodyContent>,
 }
 
 #[derive(Serialize)]
-pub struct GeminiTextGenRequestBodyContent {
+pub struct GoogleTextGenRequestBodyContent {
     pub role: String,
-    pub parts: Vec<GeminiTextGenRequestBodyContentPart>,
+    pub parts: Vec<GoogleTextGenRequestBodyContentPart>,
 }
 
 #[derive(Serialize)]
-pub struct GeminiTextGenRequestBodyContentPart {
+pub struct GoogleTextGenRequestBodyContentPart {
     pub text: String,
 }
 
@@ -48,22 +48,22 @@ pub struct GeminiTextGenResponseBody {
 
 #[derive(Deserialize)]
 pub struct GeminiTextGenResponseBodyCandidate {
-    pub content: GeminiTextGenResponseBodyCandidateContent,
+    pub content: GoogleTextGenResponseBodyCandidateContent,
 }
 
 #[derive(Deserialize)]
-pub struct GeminiTextGenResponseBodyCandidateContent {
-    pub parts: Vec<GeminiTextGenResponseBodyCandidateContentPart>,
+pub struct GoogleTextGenResponseBodyCandidateContent {
+    pub parts: Vec<GoogleTextGenResponseBodyCandidateContentPart>,
 }
 
 #[derive(Deserialize)]
-pub struct GeminiTextGenResponseBodyCandidateContentPart {
+pub struct GoogleTextGenResponseBodyCandidateContentPart {
     pub text: String,
 }
 
 #[async_trait]
-impl AgentApi for GeminiAgent {
-    type TextGenParams = GeminiTextGenParams;
+impl AgentApi for GoogleAgent {
+    type TextGenParams = GoogleTextGenParams;
 
     async fn generate_text(
         self,
@@ -71,13 +71,13 @@ impl AgentApi for GeminiAgent {
         params: Self::TextGenParams,
     ) -> Result<impl Stream<Item = Result<AgentTextGenResult, AppError>>, AppError> {
         let client = context.http_client_manager.get_client();
-        let body = GeminiTextGenRequestBody {
+        let body = GoogleTextGenRequestBody {
             contents: params
                 .messages
                 .into_iter()
-                .map(|a| GeminiTextGenRequestBodyContent {
+                .map(|a| GoogleTextGenRequestBodyContent {
                     role: a.role,
-                    parts: vec![GeminiTextGenRequestBodyContentPart { text: a.content }],
+                    parts: vec![GoogleTextGenRequestBodyContentPart { text: a.content }],
                 })
                 .collect(),
         };
@@ -138,7 +138,7 @@ impl AgentApi for GeminiAgent {
                         .decrypt_base64_str(&config.api_key.unwrap_or_default())?,
                     messages: chat_messages
                         .into_iter()
-                        .map(|a| GeminiTextGenParamsMessage {
+                        .map(|a| GoogleTextGenParamsMessage {
                             role: match a.role.as_str() {
                                 "model" => "model",
                                 _ => "user",
@@ -154,8 +154,8 @@ impl AgentApi for GeminiAgent {
     }
 }
 
-impl AgentTextGenParamsApi for GeminiTextGenParams {
-    type Message = GeminiTextGenParamsMessage;
+impl AgentTextGenParamsApi for GoogleTextGenParams {
+    type Message = GoogleTextGenParamsMessage;
 
     fn push_message(&mut self, message: Self::Message) {
         self.messages.push(message);

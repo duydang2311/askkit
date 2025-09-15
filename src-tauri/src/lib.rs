@@ -234,9 +234,9 @@ async fn seed_data(db_pool: Arc<Pool<Sqlite>>) -> Result<(), AppError> {
     if count == 0 {
         sqlx::query(
             r#"
-            insert into agents (id, provider, model) values (?1, 'gemini', 'gemini-2.5-pro');
-            insert into agents (id, provider, model) values (?2, 'gemini', 'gemini-2.5-flash');
-            insert into agents (id, provider, model) values (?3, 'gemini', 'gemini-2.5-flash-lite');
+            insert into agents (id, provider, model) values (?1, 'google', 'gemini-2.5-pro');
+            insert into agents (id, provider, model) values (?2, 'google', 'gemini-2.5-flash');
+            insert into agents (id, provider, model) values (?3, 'google', 'gemini-2.5-flash-lite');
             "#,
         )
         .bind(Uuid::new_v4())

@@ -2,7 +2,7 @@ create table agents (
     created_at integer not null default (cast(unixepoch('now', 'subsecond') * 1000 as integer)),
     updated_at integer not null default (cast(unixepoch('now', 'subsecond') * 1000 as integer)),
     id text primary key,
-    provider text not null check (provider in ('gemini')),
+    provider text not null check (provider in ('google')),
     model text not null,
     constraint uq_agents_provider_model unique (provider, model)
 );
@@ -19,7 +19,7 @@ create table agent_providers (
     created_at integer not null default (cast(unixepoch('now', 'subsecond') * 1000 as integer)),
     updated_at integer not null default (cast(unixepoch('now', 'subsecond') * 1000 as integer)),
     id text not null primary key,
-    provider text not null check (provider in ('gemini')),
+    provider text not null check (provider in ('google')),
     api_key text null
 );
 

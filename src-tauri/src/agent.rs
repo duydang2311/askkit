@@ -1,5 +1,5 @@
 pub mod cmds;
-pub mod gemini;
+pub mod google;
 pub mod repo;
 
 use std::sync::Arc;
@@ -11,7 +11,7 @@ use uuid::Uuid;
 
 use crate::{
     agent::{
-        gemini::{GeminiAgent, GeminiTextGenParams, GeminiTextGenParamsMessage},
+        google::{GoogleAgent, GoogleTextGenParams, GoogleTextGenParamsMessage},
         repo::AgentRepo,
     },
     chat::repo::ChatRepo,
@@ -23,20 +23,20 @@ use crate::{
 #[sqlx(type_name = "text", rename_all = "snake_case")]
 #[serde(rename_all = "snake_case")]
 pub enum AgentProvider {
-    Gemini,
+    Google,
     OpenAI,
 }
 
 pub enum Agent {
-    Gemini(GeminiAgent),
+    Gemini(GoogleAgent),
 }
 
 pub enum AgentTextGenParams {
-    Gemini(GeminiTextGenParams),
+    Google(GoogleTextGenParams),
 }
 
 pub enum AgentTextGenParamsMessage {
-    Gemini(GeminiTextGenParamsMessage),
+    Google(GoogleTextGenParamsMessage),
 }
 
 pub trait AgentTextGenParamsApi {
@@ -105,7 +105,7 @@ impl Clone for AgentContext {
 impl From<AgentRow> for Agent {
     fn from(row: AgentRow) -> Self {
         match row.provider {
-            AgentProvider::Gemini => Self::Gemini(GeminiAgent {
+            AgentProvider::Google => Self::Gemini(GoogleAgent {
                 id: row.id,
                 model: row.model,
             }),
@@ -124,7 +124,7 @@ impl AgentApi for Agent {
         params: Self::TextGenParams,
     ) -> Result<impl Stream<Item = Result<AgentTextGenResult, AppError>>, AppError> {
         match (self, params) {
-            (Agent::Gemini(agent), AgentTextGenParams::Gemini(params)) => {
+            (Agent::Gemini(agent), AgentTextGenParams::Google(params)) => {
                 agent.generate_text(context, params).await
             }
         }
@@ -139,7 +139,7 @@ impl AgentApi for Agent {
             Agent::Gemini(agent) => agent
                 .create_text_gen_params(context, chat_id)
                 .await
-                .map(|a| a.map(|a| AgentTextGenParams::Gemini(a))),
+                .map(|a| a.map(|a| AgentTextGenParams::Google(a))),
         }
     }
 }
@@ -149,7 +149,7 @@ impl AgentTextGenParamsApi for AgentTextGenParams {
 
     fn push_message(&mut self, message: Self::Message) {
         match (self, message) {
-            (AgentTextGenParams::Gemini(params), AgentTextGenParamsMessage::Gemini(message)) => {
+            (AgentTextGenParams::Google(params), AgentTextGenParamsMessage::Google(message)) => {
                 params.push_message(message);
             }
         }
@@ -157,7 +157,7 @@ impl AgentTextGenParamsApi for AgentTextGenParams {
 
     fn push_message_str(&mut self, message: &str) {
         match self {
-            AgentTextGenParams::Gemini(params) => {
+            AgentTextGenParams::Google(params) => {
                 params.push_message_str(message);
             }
         }

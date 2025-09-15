@@ -20,7 +20,7 @@ export interface ChatMessage {
 }
 
 export enum AgentProvider {
-    Gemini = 'gemini',
+    Google = 'google',
     OpenAI = 'open_ai',
 }
 

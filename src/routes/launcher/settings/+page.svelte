@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { AgentProvider } from '$lib/common/models';
     import { useAgents, useCurrentAgent } from '$lib/common/queries';
     import { useRuntime } from '$lib/common/runtime';
     import { button } from '$lib/common/styles';
@@ -129,7 +130,7 @@
             {#if item}
                 <div>
                     <h2 class="text-base-fg-muted mb-2 font-medium">Parameters</h2>
-                    {#if item.provider === 'gemini'}
+                    {#if item.provider === AgentProvider.Google}
                         <div
                             {...passwordInput.getRootProps()}
                             class={[
