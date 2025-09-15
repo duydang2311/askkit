@@ -1,7 +1,6 @@
 <script lang="ts">
     import { goto } from '$app/navigation';
-    import { setLauncherContext } from '$lib/common/launcher.svelte';
-    import { useCurrentAgent } from '$lib/common/queries';
+    import { page } from '$app/state';
     import { invoke } from '@tauri-apps/api/core';
     import { LogicalSize } from '@tauri-apps/api/dpi';
     import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
@@ -10,21 +9,11 @@
     import Bot from '~icons/lucide/bot';
     import type { LayoutProps } from './$types';
     import Greetings from './Greetings.svelte';
-    import { page } from '$app/state';
+    import SelectAgent from './SelectAgent.svelte';
 
     const { children }: LayoutProps = $props();
-    const currentAgent = useCurrentAgent();
-    const ctx = setLauncherContext({});
 
     let lastHeight = 0;
-
-    $effect(() => {
-        if (ctx.chatId) {
-            localStorage.setItem('active_chat_id', ctx.chatId);
-        } else {
-            localStorage.removeItem('active_chat_id');
-        }
-    });
 
     onMount(() => {
         const off = on(window, 'keyup', async (e) => {
@@ -35,7 +24,7 @@
         return () => {
             localStorage.removeItem('active_chat_id');
             off();
-        }
+        };
     });
 </script>
 
@@ -55,16 +44,17 @@
         };
     }}
 >
-    <div class="flex justify-between gap-4 px-6 py-2 border-b border-b-base-border">
+    <div class="border-b-base-border flex justify-between gap-4 border-b px-6 py-2">
         <Greetings />
         <p class="text-primary font-bold tracking-tight">askkit</p>
     </div>
     {@render children()}
-    <div class="px-6 py-2 flex items-center gap-2 border-t border-t-base-border">
+    <div class="border-t-base-border flex gap-2 border-t px-6 py-2">
         <button
             id="agent"
             type="button"
-            class="p-1 size-8 disabled:text-base-fg-muted"
+            data-active={page.url.pathname === '/launcher/settings' ? '' : undefined}
+            class="text-base-fg-muted hover:text-base-fg hover:bg-base-hover data-[active]:text-base-fg data-[active]:bg-base-dark data-[active]:dark:bg-base-light size-8 p-1"
             onclick={async () => {
                 await goto(
                     page.url.pathname === '/launcher/settings'
@@ -75,13 +65,6 @@
         >
             <Bot class="size-full" />
         </button>
-        {#if $currentAgent.data}
-            <label
-                for="agent"
-                class="bg-base-dark dark:bg-base-light text-base-fg-muted text-xs p-1 leading-none content-center"
-            >
-                {$currentAgent.data.model}
-            </label>
-        {/if}
+        <SelectAgent />
     </div>
 </main>

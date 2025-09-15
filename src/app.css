@@ -15,13 +15,13 @@
     --color-base-fg-light: oklch(27% 0.0038 164.54);
     --color-base-fg-dark: oklch(7% 0.0038 164.54);
     --color-base-fg-muted: oklch(57% 0.0038 164.54);
-    --color-base-border: oklch(90% 0 116.2);
+    --color-base-border: oklch(92% 0 116.2);
     --color-base-border-light: oklch(94% 0 116.2);
-    --color-base-border-dark: oklch(86% 0 116.2);
+    --color-base-border-dark: oklch(88% 0 116.2);
 
     --color-primary: oklch(52.36% 0.1748 255.4);
 
-    --default-font-family: 'Inter Variable', ui-sans-serif, system-ui,
+    --default-font-family: 'Segoe UI', ui-sans-serif, system-ui,
         sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
         'Noto Color Emoji';
 }

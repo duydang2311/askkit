@@ -1,6 +1,6 @@
 <script lang="ts">
-    import { useLauncherContext } from '$lib/common/launcher.svelte';
     import { ChatMessageStatus, type ChatMessage } from '$lib/common/models';
+    import { useCurrentAgent } from '$lib/common/queries';
     import { useRuntime } from '$lib/common/runtime';
     import { watch } from '@duydang2311/svutils';
     import { createQuery } from '@tanstack/svelte-query';
@@ -24,22 +24,19 @@
     import { isAppError } from '../../../lib/common/error';
     import { onEvent } from '../../../lib/common/tauri';
     import { persisted } from './persisted.svelte';
-    import { useCurrentAgent } from '$lib/common/queries';
 
-    const launcherContext = useLauncherContext();
     const editorBaseClass = 'w-screen max-h-64 overflow-auto pl-6 pr-28 py-4 focus:outline-none';
     const { queryClient } = useRuntime();
     let editor = $state.raw<Editor>();
     let chatEl = $state.raw<HTMLElement>();
     let errors = new SvelteSet<string>();
 
-    const chatMessagesQueryKey = $derived(['chat-messages', { chatId: launcherContext.chatId }]);
+    const chatMessagesQueryKey = $derived(['chat-messages', { chatId: persisted.chatId }]);
     const chatMessages = createQuery(
         toStore(() => ({
-            enabled: launcherContext.chatId != null,
+            enabled: persisted.chatId != null,
             queryKey: chatMessagesQueryKey,
-            queryFn: () =>
-                invoke<ChatMessage[]>('get_chat_messages', { id: launcherContext.chatId! }),
+            queryFn: () => invoke<ChatMessage[]>('get_chat_messages', { id: persisted.chatId! }),
         }))
     );
     const currentAgent = useCurrentAgent();
@@ -84,15 +81,15 @@
         }
         const content = editor.getText() ?? '';
         editor.commands.clearContent();
-        if (!launcherContext.chatId) {
-            launcherContext.chatId = await invoke<string>('create_chat', {
+        if (!persisted.chatId) {
+            persisted.chatId = await invoke<string>('create_chat', {
                 content,
             });
         }
         try {
             await invoke<string>('send_chat_message', {
                 content,
-                chatId: launcherContext.chatId,
+                chatId: persisted.chatId,
             });
         } catch (e) {
             console.log(e);
@@ -108,12 +105,12 @@
     onEvent('chat_message_response_chunk', (e) => {
         // TODO: validate
         const data = e.payload as { chatId: string; id: string; text: string };
-        if (launcherContext.chatId !== data.chatId) {
+        if (persisted.chatId !== data.chatId) {
             return;
         }
 
         queryClient.setQueryData<ChatMessage[]>(
-            ['chat-messages', { chatId: launcherContext.chatId }],
+            ['chat-messages', { chatId: persisted.chatId }],
             (messages) => {
                 return messages?.map((a) =>
                     a.id === data.id
@@ -130,7 +127,7 @@
     onEvent('chat_message_created', async (e) => {
         // TODO: validate
         const msg = e.payload as ChatMessage;
-        if (launcherContext.chatId !== msg.chatId) {
+        if (persisted.chatId !== msg.chatId) {
             return;
         }
 
@@ -187,7 +184,7 @@
     });
 
     onEvent<{ chatId: string; messageId: string }>('chat_message_rollback', async (e) => {
-        if (launcherContext.chatId !== e.payload.chatId) {
+        if (persisted.chatId !== e.payload.chatId) {
             return;
         }
 
@@ -202,7 +199,7 @@
     onEvent<{ chatId: string; messageId: string; status: ChatMessageStatus }>(
         'chat_message_status_changed',
         async (e) => {
-            if (launcherContext.chatId !== e.payload.chatId) {
+            if (persisted.chatId !== e.payload.chatId) {
                 return;
             }
 
@@ -228,16 +225,13 @@
 </script>
 
 <div class="relative">
-    <ol
-        bind:this={chatEl}
-        class="h-128 px-6 py-4 overflow-auto space-y-4 custom-scrollbar"
-    >
+    <ol bind:this={chatEl} class="custom-scrollbar h-128 space-y-4 overflow-auto px-6 py-4">
         {#if persisted.messages}
             {#each persisted.messages as msg (msg.id)}
                 <li data-role={msg.role}>
                     <div
                         data-role={msg.role}
-                        class="data-[role=user]:bg-base-dark data-[role=user]:dark:bg-base-light p-2 rounded w-fit max-w-[80ch] data-[role=user]:ml-auto wrap-anywhere prose"
+                        class="data-[role=user]:bg-base-light prose w-fit max-w-[80ch] rounded p-2 wrap-anywhere data-[role=user]:ml-auto"
                     >
                         {@html msg.html}
                     </div>
@@ -245,7 +239,7 @@
             {/each}
         {/if}
         {#if errors.size > 0}
-            <div class="absolute inset-0 flex flex-col justify-center items-center p-20">
+            <div class="absolute inset-0 flex flex-col items-center justify-center p-20">
                 {#if errors.has('AgentRequiredError')}
                     {@render agentRequiredError()}
                 {:else if errors.has('AgentTextGenParamsRequiredError')}
@@ -255,15 +249,17 @@
         {/if}
     </ol>
     {#if latestMessage?.status === ChatMessageStatus.Pending}
-        <div class="absolute bottom-0 inset-x-0 px-6 pb-2 pt-6 bg-gradient-to-t from-base to-transparent from-80%">
-            <span class="animate-pulse c-label">
-            {$currentAgent.data?.model ?? 'Agent'} is typing...
+        <div
+            class="from-base absolute inset-x-0 bottom-0 bg-gradient-to-t from-80% to-transparent px-6 pt-6 pb-2"
+        >
+            <span class="c-label animate-pulse">
+                {$currentAgent.data?.model ?? 'Agent'} is typing...
             </span>
         </div>
     {/if}
 </div>
 <div
-    class="relative border-t border-base-border"
+    class="border-base-border relative border-t"
     {@attach (node) => {
         const currentEditor = new Editor({
             element: node,
@@ -312,12 +308,12 @@
 >
     <div
         data-multiline={(editor ? hasMultilines(editor) : false) ? '' : undefined}
-        class="flex items-center gap-2 absolute right-6 bottom-4 not-[[data-multiline]]:bottom-1/2 not-[[data-multiline]]:translate-y-1/2 z-10"
+        class="absolute right-6 bottom-4 z-10 flex items-center gap-2 not-[[data-multiline]]:bottom-1/2 not-[[data-multiline]]:translate-y-1/2"
     >
         <button
             type="button"
             disabled={editor?.isEmpty ?? true}
-            class="p-1 size-8 text-primary disabled:text-base-fg-muted"
+            class="text-primary disabled:text-base-fg-muted size-8 p-1"
             onclick={submit}
         >
             <PaperAirplane class="size-full" />
@@ -326,13 +322,13 @@
 </div>
 
 {#snippet agentRequiredError()}
-    <BotOff class="block size-16 text-base-fg-muted" />
+    <BotOff class="text-base-fg-muted block size-16" />
     <p class="text-base-fg-muted text-xl">No agent selected</p>
     <p class="mt-4">Please select an AI agent to start chatting</p>
 {/snippet}
 
 {#snippet agentTextGenParamsRequiredError()}
-    <BotOff class="block size-16 text-base-fg-muted" />
+    <BotOff class="text-base-fg-muted block size-16" />
     <p class="text-base-fg-muted text-xl">Agent not configured</p>
     <p class="mt-4">Configure the required parameters for the selected agent to start chatting</p>
 {/snippet}

@@ -1,8 +1,9 @@
 <script lang="ts">
-    import { useCurrentAgent } from '$lib/common/queries';
+    import { useAgents, useCurrentAgent } from '$lib/common/queries';
     import { useRuntime } from '$lib/common/runtime';
     import { createPasswordInput, createSelect } from '$lib/components/builders.svelte';
     import { Eye, EyeSlash } from '$lib/components/icons';
+    import { attempt } from '@duydang2311/attempt';
     import { createQuery } from '@tanstack/svelte-query';
     import { invoke } from '@tauri-apps/api/core';
     import { ListCollection } from '@zag-js/collection';
@@ -11,17 +12,7 @@
 
     const { queryClient } = useRuntime();
 
-    const agents = createQuery({
-        queryKey: ['agents'],
-        queryFn: () =>
-            invoke<
-                {
-                    id: string;
-                    provider: string;
-                    model: string;
-                }[]
-            >('get_agents'),
-    });
+    const agents = useAgents();
     const currentAgent = useCurrentAgent();
     const agentConfig = createQuery(
         toStore(() => ({
@@ -36,7 +27,7 @@
 
     const id = $props.id();
     const select = createSelect({
-        id,
+        id: id + '-select',
         get collection() {
             return new ListCollection({
                 items: $agents.data ?? [],
@@ -57,20 +48,26 @@
     let showApiKey = $state.raw(false);
     let decryptedApiKey = $state.raw<string | null>(null);
     const passwordInput = createPasswordInput({
-        id,
+        id: id + '-password-input',
         get visible() {
             return showApiKey;
         },
         onVisibilityChange: async (details) => {
+            let decryptedStr: string | null = null;
             if (details.visible) {
-                decryptedApiKey = $agentConfig.data?.api_key
-                    ? ((await invoke<string>('decrypt_agent_ciphertext', {
-                          ciphertext: $agentConfig.data.api_key,
-                      }).catch(console.error)) ?? null)
-                    : null;
-            } else {
-                decryptedApiKey = null;
+                const ciphertext = $agentConfig.data?.api_key;
+                if (ciphertext) {
+                    const decrypted = await attempt.async(() =>
+                        invoke<string>('decrypt_agent_ciphertext', {
+                            ciphertext,
+                        })
+                    )(console.error);
+                    if (decrypted.ok) {
+                        decryptedStr = decrypted.data;
+                    }
+                }
             }
+            decryptedApiKey = decryptedStr;
             showApiKey = details.visible;
         },
     });

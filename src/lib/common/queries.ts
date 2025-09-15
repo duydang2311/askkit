@@ -7,4 +7,18 @@ export const useCurrentAgent = () => {
         queryKey: ['current-agent'],
         queryFn: () => invoke<Agent | null>('get_current_agent'),
     });
-}
+};
+
+export const useAgents = () => {
+    return createQuery({
+        queryKey: ['agents'],
+        queryFn: () =>
+            invoke<
+                {
+                    id: string;
+                    provider: string;
+                    model: string;
+                }[]
+            >('get_agents'),
+    });
+};

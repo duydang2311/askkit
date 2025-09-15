@@ -3,7 +3,7 @@
     import gsap from 'gsap';
     import SplitText from 'gsap/SplitText';
 
-    const greetings = ['Hỏi gì đi!', 'Ask away!', '何でも聞いてね!!'];
+    const greetings = ['Hỏi gì đó đi!', 'Ask something!', '何でも聞いてね!!'];
     let idx = $state.raw(0);
 
     gsap.registerPlugin(SplitText);
