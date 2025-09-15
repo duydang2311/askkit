@@ -10,6 +10,7 @@
     import type { LayoutProps } from './$types';
     import Greetings from './Greetings.svelte';
     import SelectAgent from './SelectAgent.svelte';
+    import { button } from '$lib/common/styles';
 
     const { children }: LayoutProps = $props();
 
@@ -53,8 +54,10 @@
         <button
             id="agent"
             type="button"
-            data-active={page.url.pathname === '/launcher/settings' ? '' : undefined}
-            class="text-base-fg-muted hover:text-base-fg hover:bg-base-hover data-[active]:text-base-fg data-[active]:bg-base-dark data-[active]:dark:bg-base-light size-8 p-1"
+            class={button({
+                variant: page.url.pathname === '/launcher/settings' ? 'primary' : 'base',
+                filled: true
+            })}
             onclick={async () => {
                 await goto(
                     page.url.pathname === '/launcher/settings'

@@ -24,6 +24,7 @@
     import { isAppError } from '../../../lib/common/error';
     import { onEvent } from '../../../lib/common/tauri';
     import { persisted } from './persisted.svelte';
+    import { button } from '$lib/common/styles';
 
     const editorBaseClass = 'w-screen max-h-64 overflow-auto pl-6 pr-28 py-4 focus:outline-none';
     const { queryClient } = useRuntime();
@@ -269,7 +270,7 @@
                 Paragraph,
                 HardBreak,
                 Placeholder.configure({
-                    placeholder: 'Enter your questions...',
+                    placeholder: 'Enter your message...',
                 }),
                 CodeBlock,
                 Markdown.configure({
@@ -313,7 +314,7 @@
         <button
             type="button"
             disabled={editor?.isEmpty ?? true}
-            class="text-primary disabled:text-base-fg-muted size-8 p-1"
+            class="{button({ variant: 'primary' })} size-8 p-1"
             onclick={submit}
         >
             <PaperAirplane class="size-full" />

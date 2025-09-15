@@ -1,6 +1,7 @@
 <script lang="ts">
     import { useAgents, useCurrentAgent } from '$lib/common/queries';
     import { useRuntime } from '$lib/common/runtime';
+    import { button } from '$lib/common/styles';
     import { createSelect } from '$lib/components/builders.svelte';
     import { invoke } from '@tauri-apps/api/core';
     import { ListCollection } from '@zag-js/collection';
@@ -31,10 +32,7 @@
 
 <div {...select.getRootProps()}>
     <div {...select.getControlProps()} class="h-full">
-        <button
-            {...select.getTriggerProps()}
-            class="text-base-fg-muted bg-base-dark hover:bg-base-hover data-[state=open]:bg-base-dark focus-visible:ring-offset-base focus-visible:ring-base-border h-full px-2 py-1 text-left text-xs focus-visible:ring focus-visible:ring-offset-2 focus-visible:outline-none"
-        >
+        <button {...select.getTriggerProps()} class="{button({ filled: true })} h-full text-xs">
             <span>
                 {$currentAgent.data?.model ?? 'Select agent'}
             </span>

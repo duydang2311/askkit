@@ -1,0 +1,88 @@
+.c-button {
+    --_text: transparent;
+    --_bg: transparent;
+    --_bg-hover: transparent;
+    --_bg-active: transparent;
+    --_bg-select-open: transparent;
+    --_border: transparent;
+    --_outline: transparent;
+    --_outline-offset: transparent;
+}
+
+.c-button--base {
+    --_text: var(--color-base-fg);
+    --_bg-hover: var(--color-base-hover);
+    --_bg-active: var(--color-base-active);
+    --_bg-select-open: var(--color-base-dark);
+    --_outline: var(--color-base-border);
+    --_outline-offset: var(--color-base);
+
+    &:where(.c-button--filled) {
+        --_bg: var(--color-base-light);
+    }
+
+    &:where(.c-button--border) {
+        --_border: var(--color-base-border);
+    }
+}
+
+.c-button--primary {
+    --_text: var(--color-primary);
+    --_bg-hover: color-mix(in oklch, var(--color-primary-hover) 5%, transparent);
+    --_bg-active: color-mix(in oklch, var(--color-primary-active) 15%, transparent);
+    --_bg-select-open: var(--color-primary-dark);
+    --_outline: var(--color-primary-border);
+    --_outline-offset: var(--color-primary);
+
+    &:where(.c-button--filled) {
+        --_bg: var(--color-primary);
+        --_bg-hover: var(--color-primary-hover);
+        --_bg-active: var(--color-primary-active);
+        --_text: var(--color-primary-fg);
+    }
+
+    &:where(.c-button--border) {
+        --_border: var(--color-primary-border);
+    }
+}
+
+.c-button {
+    &:where(:disabled) {
+        --_text: var(--color-base-fg-muted);
+        --_bg-hover: transparent;
+        --_bg-active: transparent;
+    }
+
+    &:where(.c-button--filled:disabled) {
+        --_bg: var(--color-base-dark);
+        --_text: var(--color-base-fg-muted);
+        --_bg-hover: var(--_bg);
+        --_bg-active: var(--_bg);
+    }
+}
+
+.c-button {
+    padding: --spacing(1) --spacing(2);
+    color: var(--_text);
+    background-color: var(--_bg);
+    border: 1px solid var(--_border);
+
+    &:where(:hover) {
+        background-color: var(--_bg-hover);
+    }
+
+    &:where(:active) {
+        background-color: var(--_bg-active);
+    }
+
+    &:where([data-state='open']) {
+        background-color: var(--_bg-select-open);
+    }
+
+    &:where(:focus-visible) {
+        --tw-ring-offset-color: var(--_outline-offset);
+        --tw-ring-color: var(--_outline);
+        outline: none;
+        @apply ring ring-offset-2;
+    }
+}

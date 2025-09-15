@@ -1,6 +1,7 @@
 <script lang="ts">
     import { useAgents, useCurrentAgent } from '$lib/common/queries';
     import { useRuntime } from '$lib/common/runtime';
+    import { button } from '$lib/common/styles';
     import { createPasswordInput, createSelect } from '$lib/components/builders.svelte';
     import { Eye, EyeSlash } from '$lib/components/icons';
     import { attempt } from '@duydang2311/attempt';
@@ -76,16 +77,14 @@
 <div class="px-6 py-4">
     <div class="grid grid-cols-2 gap-4">
         <div>
-            <h2 class="mb-2 text-base-fg-muted font-medium">Agent</h2>
+            <h2 class="text-base-fg-muted mb-2 font-medium">Agent</h2>
             <div {...select.getRootProps()}>
                 <div {...select.getControlProps()}>
                     <button
                         {...select.getTriggerProps()}
-                        class="px-2 py-1 min-w-64 w-full text-left bg-base-light dark:bg-base-dark border border-base-border
-                                hover:bg-base-hover data-[state=open]:bg-base-dark
-                                focus-visible:outline-none focus-visible:ring focus-visible:ring-offset-2 focus-visible:ring-offset-base focus-visible:ring-base-border"
+                        class="{button({ filled: true, border: true })} w-full text-left"
                     >
-                        <label {...select.getLabelProps()} class="block c-label">Model</label>
+                        <label {...select.getLabelProps()} class="c-label block">Model</label>
                         <span>
                             {select.valueAsString || 'Select agent'}
                         </span>
@@ -94,12 +93,12 @@
                 <div use:portal {...select.getPositionerProps()}>
                     <ul
                         {...select.getContentProps()}
-                        class="w-(--reference-width) bg-base-light dark:bg-base-dark min-w-max border border-base-border p-1 focus:outline-none"
+                        class="bg-base-light dark:bg-base-dark border-base-border w-(--reference-width) min-w-max border p-1 focus:outline-none"
                     >
                         {#each $agents.data ?? [] as item (item.id)}
                             <li
                                 {...select.getItemProps({ item })}
-                                class="px-2 py-1 data-[highlighted]:bg-base-hover"
+                                class="data-[highlighted]:bg-base-hover px-2 py-1"
                             >
                                 <span {...select.getItemTextProps({ item })}>{item.model}</span>
                                 <span {...select.getItemIndicatorProps({ item })}>✓</span>
@@ -129,16 +128,16 @@
             {@const item = select.selectedItems[0]}
             {#if item}
                 <div>
-                    <h2 class="mb-2 text-base-fg-muted font-medium">Parameters</h2>
+                    <h2 class="text-base-fg-muted mb-2 font-medium">Parameters</h2>
                     {#if item.provider === 'gemini'}
                         <div
                             {...passwordInput.getRootProps()}
                             class={[
-                                'border border-base-border bg-base-light dark:bg-base-dark px-2 py-1',
-                                'focus-within:outline-none focus-within:ring focus-within:ring-offset-2 focus-within:ring-offset-base focus-within:ring-base-border',
+                                'border-base-border bg-base-light dark:bg-base-dark border px-2 py-1',
+                                'focus-within:ring-offset-base focus-within:ring-base-border focus-within:ring focus-within:ring-offset-2 focus-within:outline-none',
                             ]}
                         >
-                            <label {...passwordInput.getLabelProps()} class="block c-label">
+                            <label {...passwordInput.getLabelProps()} class="c-label block">
                                 API key
                             </label>
                             <div {...passwordInput.getControlProps()} class="flex gap-2">
@@ -148,7 +147,7 @@
                                     value={showApiKey
                                         ? decryptedApiKey
                                         : ($agentConfig.data?.api_key ?? undefined)}
-                                    class="w-full focus:outline-none placeholder:text-base-fg-muted"
+                                    class="placeholder:text-base-fg-muted w-full focus:outline-none"
                                     onblur={async (e) => {
                                         if (
                                             e.currentTarget.value ===

@@ -1,5 +1,6 @@
 @import 'tailwindcss';
 @import 'lib/stylesheets/c-label.css' layer(components);
+@import 'lib/stylesheets/c-button.css' layer(components);
 
 @plugin '@tailwindcss/typography';
 @config '../tailwind.config.js';
@@ -11,6 +12,7 @@
     --color-base-light: oklch(100% 0 116.2);
     --color-base-dark: oklch(96% 0 116.2);
     --color-base-hover: oklch(94% 0 116.2);
+    --color-base-active: oklch(90% 0 116.2);
     --color-base-fg: oklch(17% 0.0038 164.54);
     --color-base-fg-light: oklch(27% 0.0038 164.54);
     --color-base-fg-dark: oklch(7% 0.0038 164.54);
@@ -20,10 +22,13 @@
     --color-base-border-dark: oklch(88% 0 116.2);
 
     --color-primary: oklch(52.36% 0.1748 255.4);
+    --color-primary-hover: oklch(48.36% 0.1748 255.4);
+    --color-primary-active: oklch(44.36% 0.1748 255.4);
+    --color-primary-fg: oklch(100% 0.01 255.4);
 
-    --default-font-family: 'Segoe UI', ui-sans-serif, system-ui,
-        sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
-        'Noto Color Emoji';
+    --default-font-family:
+        ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+        'Segoe UI Symbol', 'Noto Color Emoji';
 }
 
 @layer base {
@@ -93,7 +98,7 @@
     }
     &::-webkit-scrollbar-thumb {
         background-color: var(--color-base-border);
-        border-radius: calc(infinity * 1px);
+        border-radius: calc(infinity* 1px);
         border: --spacing(0.5) solid var(--color-base);
     }
     &::-webkit-scrollbar-thumb:hover {
