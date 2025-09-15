@@ -85,7 +85,7 @@
                                 hover:bg-base-hover data-[state=open]:bg-base-dark
                                 focus-visible:outline-none focus-visible:ring focus-visible:ring-offset-2 focus-visible:ring-offset-base focus-visible:ring-base-border"
                     >
-                        <label {...select.getLabelProps()} class="block c-label"> Model </label>
+                        <label {...select.getLabelProps()} class="block c-label">Model</label>
                         <span>
                             {select.valueAsString || 'Select agent'}
                         </span>

@@ -12,11 +12,13 @@
     const currentAgent = useCurrentAgent();
     const select = createSelect({
         id,
-        collection: new ListCollection({
-            items: $agents.data ?? [],
-            itemToString: (a) => a.model,
-            itemToValue: (a) => a.id,
-        }),
+        get collection() {
+            return new ListCollection({
+                items: $agents.data ?? [],
+                itemToString: (a) => a.model,
+                itemToValue: (a) => a.id,
+            });
+        },
         get value() {
             return $currentAgent.data ? [$currentAgent.data.id] : undefined;
         },
