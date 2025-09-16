@@ -2,6 +2,8 @@
     import { ChatMessageStatus, type ChatMessage } from '$lib/common/models';
     import { useCurrentAgent } from '$lib/common/queries';
     import { useRuntime } from '$lib/common/runtime';
+    import { button } from '$lib/common/styles';
+    import { attempt } from '@duydang2311/attempt';
     import { watch } from '@duydang2311/svutils';
     import { createQuery } from '@tanstack/svelte-query';
     import { invoke } from '@tauri-apps/api/core';
@@ -24,7 +26,6 @@
     import { isAppError } from '../../../lib/common/error';
     import { onEvent } from '../../../lib/common/tauri';
     import { persisted } from '../persisted.svelte';
-    import { button } from '$lib/common/styles';
 
     const editorBaseClass = 'w-screen max-h-64 overflow-auto pl-6 pr-28 py-4 focus:outline-none';
     const { queryClient } = useRuntime();
@@ -32,33 +33,39 @@
     let chatEl = $state.raw<HTMLElement>();
     let errors = new SvelteSet<string>();
 
-    const chatMessagesQueryKey = $derived(['chat-messages', { chatId: persisted.chatId }]);
+    const chatMessagesQueryKey = $derived(['chat-messages', { chatId: persisted.chat?.id }]);
     const chatMessages = createQuery(
         toStore(() => ({
-            enabled: persisted.chatId != null,
+            enabled: persisted.chat != null,
             queryKey: chatMessagesQueryKey,
-            queryFn: () => invoke<ChatMessage[]>('get_chat_messages', { id: persisted.chatId! }),
+            queryFn: () => invoke<ChatMessage[]>('get_chat_messages', { id: persisted.chat?.id }),
         }))
     );
     const currentAgent = useCurrentAgent();
-    const latestMessage = $derived(persisted.messages?.at(-1));
+    const latestMessage = $derived(persisted.chat?.messages.at(-1));
 
     watch(() => $chatMessages.data)(async () => {
-        persisted.messages =
-            $chatMessages.data == null
-                ? null
-                : await Promise.all(
-                      $chatMessages.data.map(async (a) => {
-                          const html = marked(a.content);
-                          return {
-                              ...a,
-                              html:
-                                  html instanceof Promise
-                                      ? await html.then(DOMPurify.sanitize)
-                                      : DOMPurify.sanitize(html),
-                          };
-                      })
-                  );
+        if (persisted.chat == null) {
+            return;
+        }
+        persisted.chat = {
+            id: persisted.chat.id,
+            messages:
+                $chatMessages.data == null
+                    ? []
+                    : await Promise.all(
+                          $chatMessages.data.map(async (a) => {
+                              const html = marked(a.content);
+                              return {
+                                  ...a,
+                                  html:
+                                      html instanceof Promise
+                                          ? await html.then(DOMPurify.sanitize)
+                                          : DOMPurify.sanitize(html),
+                              };
+                          })
+                      ),
+        };
     });
 
     const hasMultilines = (editor: Editor) => {
@@ -82,23 +89,32 @@
         }
         const content = editor.getText() ?? '';
         editor.commands.clearContent();
-        if (!persisted.chatId) {
-            persisted.chatId = await invoke<string>('create_chat', {
+
+        persisted.chat ??= {
+            id: await invoke<string>('create_chat', {
                 content,
-            });
-        }
-        try {
-            await invoke<string>('send_chat_message', {
+            }),
+            messages: [],
+        };
+
+        const chat = persisted.chat;
+        const sent = await attempt.async(() =>
+            invoke<string>('send_chat_message', {
                 content,
-                chatId: persisted.chatId,
-            });
-        } catch (e) {
-            console.log(e);
-            if (isAppError(e)) {
-                if (e.kind === 'AgentRequiredError' || e.kind === 'AgentTextGenParamsRequiredError')
-                    errors.add(e.kind);
+                chatId: chat.id,
+            })
+        )();
+
+        if (sent.failed) {
+            if (isAppError(sent.error)) {
+                if (
+                    sent.error.kind === 'AgentRequiredError' ||
+                    sent.error.kind === 'AgentTextGenParamsRequiredError'
+                ) {
+                    errors.add(sent.error.kind);
+                }
             } else {
-                throw e;
+                throw sent.error;
             }
         }
     };
@@ -106,12 +122,12 @@
     onEvent('chat_message_response_chunk', (e) => {
         // TODO: validate
         const data = e.payload as { chatId: string; id: string; text: string };
-        if (persisted.chatId !== data.chatId) {
+        if (persisted.chat?.id !== data.chatId) {
             return;
         }
 
         queryClient.setQueryData<ChatMessage[]>(
-            ['chat-messages', { chatId: persisted.chatId }],
+            ['chat-messages', { chatId: persisted.chat.id }],
             (messages) => {
                 return messages?.map((a) =>
                     a.id === data.id
@@ -128,7 +144,7 @@
     onEvent('chat_message_created', async (e) => {
         // TODO: validate
         const msg = e.payload as ChatMessage;
-        if (persisted.chatId !== msg.chatId) {
+        if (persisted.chat?.id !== msg.chatId) {
             return;
         }
 
@@ -185,7 +201,7 @@
     });
 
     onEvent<{ chatId: string; messageId: string }>('chat_message_rollback', async (e) => {
-        if (persisted.chatId !== e.payload.chatId) {
+        if (persisted.chat?.id !== e.payload.chatId) {
             return;
         }
 
@@ -200,7 +216,7 @@
     onEvent<{ chatId: string; messageId: string; status: ChatMessageStatus }>(
         'chat_message_status_changed',
         async (e) => {
-            if (persisted.chatId !== e.payload.chatId) {
+            if (persisted.chat?.id !== e.payload.chatId) {
                 return;
             }
 
@@ -226,9 +242,9 @@
 </script>
 
 <div class="relative">
-    <ol bind:this={chatEl} class="custom-scrollbar h-128 space-y-4 overflow-auto px-6 py-4">
-        {#if persisted.messages}
-            {#each persisted.messages as msg (msg.id)}
+    {#if persisted.chat && persisted.chat.messages.length > 0}
+        <ol bind:this={chatEl} class="custom-scrollbar h-128 space-y-4 overflow-auto px-6 py-4">
+            {#each persisted.chat?.messages as msg (msg.id)}
                 <li data-role={msg.role}>
                     <div
                         data-role={msg.role}
@@ -238,17 +254,17 @@
                     </div>
                 </li>
             {/each}
-        {/if}
-        {#if errors.size > 0}
-            <div class="absolute inset-0 flex flex-col items-center justify-center p-20">
-                {#if errors.has('AgentRequiredError')}
-                    {@render agentRequiredError()}
-                {:else if errors.has('AgentTextGenParamsRequiredError')}
-                    {@render agentTextGenParamsRequiredError()}
-                {/if}
-            </div>
-        {/if}
-    </ol>
+            {#if errors.size > 0}
+                <div class="absolute inset-0 flex flex-col items-center justify-center p-20">
+                    {#if errors.has('AgentRequiredError')}
+                        {@render agentRequiredError()}
+                    {:else if errors.has('AgentTextGenParamsRequiredError')}
+                        {@render agentTextGenParamsRequiredError()}
+                    {/if}
+                </div>
+            {/if}
+        </ol>
+    {/if}
     {#if latestMessage?.status === ChatMessageStatus.Pending}
         <div
             class="from-base absolute inset-x-0 bottom-0 bg-gradient-to-t from-80% to-transparent px-6 pt-6 pb-2"

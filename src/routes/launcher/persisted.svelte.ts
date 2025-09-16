@@ -1,19 +1,15 @@
 import type { ChatMessage } from '$lib/common/models';
 
-let chatId = $state.raw<string | null>(null);
-let messages = $state.raw<(ChatMessage & { html: string })[] | null>(null);
+let chat = $state.raw<{
+    id: string;
+    messages: (ChatMessage & { html: string })[];
+} | null>(null);
 
 export const persisted = {
-    get chatId() {
-        return chatId;
+    get chat() {
+        return chat;
     },
-    set chatId(value) {
-        chatId = value;
-    },
-    get messages() {
-        return messages;
-    },
-    set messages(value) {
-        messages = value;
+    set chat(value) {
+        chat = value;
     },
 };

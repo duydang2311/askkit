@@ -25,7 +25,7 @@
             }
         });
         return () => {
-            localStorage.removeItem('active_chat_id');
+            persisted.chat = null;
             off();
         };
     });
@@ -71,13 +71,12 @@
             <Bot class="size-full" />
         </button>
         <SelectAgent />
-        {#if persisted.chatId != null}
+        {#if persisted.chat != null}
             <button
                 type="button"
                 class="{button({ variant: 'base', filled: true })} flex items-center gap-2"
                 onclick={async () => {
-                    persisted.chatId = null;
-                    persisted.messages = null;
+                    persisted.chat = null;
                     await goto('/launcher/chats');
                 }}
             >
