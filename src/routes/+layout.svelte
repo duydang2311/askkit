@@ -1,7 +1,7 @@
 <script lang="ts">
     import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
+    import '@fontsource-variable/source-sans-3';
     import '../app.css';
-    import '@fontsource-variable/inter';
     import { QueryClientProvider } from '@tanstack/svelte-query';
     import { setRuntime } from '$lib/common/runtime';
 

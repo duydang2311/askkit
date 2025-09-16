@@ -16,8 +16,9 @@
     import { Placeholder } from '@tiptap/extensions';
     import DOMPurify from 'dompurify';
     import { marked } from 'marked';
-    import { onMount } from 'svelte';
+    import { onMount, untrack } from 'svelte';
     import { on } from 'svelte/events';
+    import { Spring } from 'svelte/motion';
     import { SvelteSet } from 'svelte/reactivity';
     import { toStore } from 'svelte/store';
     import { Markdown } from 'tiptap-markdown';
@@ -27,18 +28,20 @@
     import { onEvent } from '../../../lib/common/tauri';
     import { persisted } from '../persisted.svelte';
 
-    const editorBaseClass = 'w-screen max-h-64 overflow-auto pl-6 pr-28 py-4 focus:outline-none';
+    const editorBaseClass =
+        'w-screen max-h-64 overflow-auto pl-6 pr-28 py-4 focus:outline-none caret-transparent';
     const { queryClient } = useRuntime();
     let editor = $state.raw<Editor>();
-    let chatEl = $state.raw<HTMLElement>();
+    let messagesContainerEl = $state.raw<HTMLElement>();
     let errors = new SvelteSet<string>();
+    let inputContainerEl = $state.raw<HTMLElement>();
 
     const chatMessagesQueryKey = $derived(['chat-messages', { chatId: persisted.chat?.id }]);
     const chatMessages = createQuery(
         toStore(() => ({
             enabled: persisted.chat != null,
             queryKey: chatMessagesQueryKey,
-            queryFn: () => invoke<ChatMessage[]>('get_chat_messages', { id: persisted.chat?.id }),
+            queryFn: () => invoke<ChatMessage[]>('get_chat_messages', { id: persisted.chat!.id }),
         }))
     );
     const currentAgent = useCurrentAgent();
@@ -48,24 +51,22 @@
         if (persisted.chat == null) {
             return;
         }
-        persisted.chat = {
-            id: persisted.chat.id,
-            messages:
-                $chatMessages.data == null
-                    ? []
-                    : await Promise.all(
-                          $chatMessages.data.map(async (a) => {
-                              const html = marked(a.content);
-                              return {
-                                  ...a,
-                                  html:
-                                      html instanceof Promise
-                                          ? await html.then(DOMPurify.sanitize)
-                                          : DOMPurify.sanitize(html),
-                              };
-                          })
-                      ),
-        };
+
+        persisted.chat.messages =
+            $chatMessages.data == null
+                ? []
+                : await Promise.all(
+                      $chatMessages.data.map(async (a) => {
+                          const html = marked(a.content);
+                          return {
+                              ...a,
+                              html:
+                                  html instanceof Promise
+                                      ? await html.then(DOMPurify.sanitize)
+                                      : DOMPurify.sanitize(html),
+                          };
+                      })
+                  );
     });
 
     const hasMultilines = (editor: Editor) => {
@@ -119,6 +120,60 @@
         }
     };
 
+    let caretEl = $state.raw<HTMLDivElement>();
+    let caretLh = 0.85;
+    let caretHeight: number | null = null;
+    let springCaretWidth = new Spring(12, { damping: 0.6, stiffness: 0.3 });
+    let blinkTimeout = 0;
+    const scrollEl = $derived(persisted.scrollEl);
+    const springTop = new Spring(0, { damping: 0.6, stiffness: 0.25 });
+    const springLeft = new Spring(0, { damping: 0.6, stiffness: 0.25 });
+    const updateCaret = (editor: Editor, instant?: boolean) => {
+        if (!caretEl) {
+            return;
+        }
+
+        caretHeight ??= parseFloat(getComputedStyle(caretEl).lineHeight) * caretLh;
+
+        const from = editor.state.selection.from;
+        const fromCoords = editor.view.coordsAtPos(
+            Math.min(from, editor.state.doc.content.size - 1)
+        );
+        console.log(caretHeight, fromCoords, inputContainerEl?.offsetTop ?? 0);
+        let top =
+            fromCoords.top +
+            (fromCoords.bottom - fromCoords.top - caretHeight) / 2 -
+            (inputContainerEl?.offsetTop ?? 0);
+        let left = fromCoords.left;
+
+        top += window.visualViewport?.offsetTop ?? 0;
+        left += window.visualViewport?.offsetLeft ?? 0;
+
+        springTop.set(top, {
+            instant,
+        });
+        springLeft.set(left, { instant });
+        if (!editor.state.selection.empty) {
+            springCaretWidth.set(0, { instant: true });
+        } else {
+            springCaretWidth.set(from >= editor.state.doc.content.size - 1 ? 12 : 2);
+        }
+
+        caretEl?.classList.remove('animate-caret-blink', 'animate-caret-pop');
+        requestAnimationFrame(() => {
+            caretEl?.classList.add('animate-caret-pop');
+        });
+        if (blinkTimeout) {
+            clearTimeout(blinkTimeout);
+        }
+        blinkTimeout = setTimeout(() => {
+            caretEl?.classList.remove('animate-caret-pop');
+            if (editor.isFocused) {
+                caretEl?.classList.add('animate-caret-blink');
+            }
+        }, 400);
+    };
+
     onEvent('chat_message_response_chunk', (e) => {
         // TODO: validate
         const data = e.payload as { chatId: string; id: string; text: string };
@@ -155,8 +210,8 @@
             return [...(messages ?? []), msg];
         });
 
-        if (chatEl) {
-            const el = chatEl;
+        if (messagesContainerEl) {
+            const el = messagesContainerEl;
             const gapPx =
                 (
                     document.documentElement.computedStyleMap().get('font-size') as
@@ -243,8 +298,11 @@
 
 <div class="relative">
     {#if persisted.chat && persisted.chat.messages.length > 0}
-        <ol bind:this={chatEl} class="custom-scrollbar h-128 space-y-4 overflow-auto px-6 py-4">
-            {#each persisted.chat?.messages as msg (msg.id)}
+        <ol
+            bind:this={messagesContainerEl}
+            class="custom-scrollbar h-128 space-y-4 overflow-auto px-6 py-4"
+        >
+            {#each persisted.chat.messages as msg (msg.id)}
                 <li data-role={msg.role}>
                     <div
                         data-role={msg.role}
@@ -276,17 +334,21 @@
     {/if}
 </div>
 <div
-    class="border-base-border relative border-t"
+    bind:this={inputContainerEl}
+    class="border-base-border relative overflow-hidden border-t"
     {@attach (node) => {
         const currentEditor = new Editor({
             element: node,
+            editorProps: {
+                attributes: { spellcheck: 'false', class: editorBaseClass },
+            },
             extensions: [
                 Document,
                 Text,
                 Paragraph,
                 HardBreak,
                 Placeholder.configure({
-                    placeholder: 'Enter your message...',
+                    placeholder: 'Start typing...',
                 }),
                 CodeBlock,
                 Markdown.configure({
@@ -302,23 +364,30 @@
                             },
                         };
                     },
-                    onTransaction: async (props) => {
-                        props.editor.view.setProps({
-                            attributes: {
-                                class: editorBaseClass,
-                            },
-                        });
-                    },
                 }),
             ],
             onTransaction: (props) => {
-                editor = undefined;
-                editor = props.editor;
+                untrack(() => {
+                    editor = undefined;
+                    editor = props.editor;
+                    updateCaret(editor);
+                });
             },
         });
         currentEditor.commands.focus();
-        editor = currentEditor;
+        let off: (() => void) | undefined;
+        untrack(() => {
+            persisted.scrollEl = currentEditor.view.dom;
+            off = on(persisted.scrollEl, 'scroll', () => {
+                if (editor) {
+                    updateCaret(editor, true);
+                }
+            });
+            editor = currentEditor;
+        });
         return () => {
+            persisted.scrollEl = null;
+            off?.();
             currentEditor.destroy();
         };
     }}
@@ -336,6 +405,14 @@
             <PaperAirplane class="size-full" />
         </button>
     </div>
+    <div
+        bind:this={caretEl}
+        class={[
+            'absolute transition-colors',
+            editor?.isFocused ? 'bg-primary animate-caret-blink' : 'bg-transparent',
+        ]}
+        style="width: {springCaretWidth.current}px; height: {caretLh}lh; top: {springTop.current}px; left: {springLeft.current}px;"
+    ></div>
 </div>
 
 {#snippet agentRequiredError()}
@@ -349,3 +426,67 @@
     <p class="text-base-fg-muted text-xl">Agent not configured</p>
     <p class="mt-4">Configure the required parameters for the selected agent to start chatting</p>
 {/snippet}
+
+<style>
+    @keyframes caret-pop {
+        0% {
+            transform: scale(1);
+            opacity: 1;
+        }
+        50% {
+            transform: scale(0.9);
+            opacity: 0.8;
+        }
+        100% {
+            transform: scale(1);
+            opacity: 1;
+        }
+    }
+
+    @keyframes caret-blink {
+        0% {
+            opacity: 1;
+        }
+        20% {
+            opacity: 0.4;
+        }
+        40% {
+            opacity: 1;
+        }
+        60% {
+            opacity: 0.4;
+        }
+        80% {
+            opacity: 1;
+        }
+    }
+
+    .animate-caret-blink {
+        animation: caret-blink 3s ease infinite;
+    }
+
+    :global(.animate-caret-pop) {
+        animation: caret-pop 100ms ease;
+    }
+
+    :global(.animate-caret-blink.animate-caret-pop) {
+        animation:
+            caret-pop 100ms ease,
+            caret-blink 3s ease infinite alternate;
+    }
+
+    :global(.tiptap::selection) {
+        background-color: var(--color-primary);
+        color: var(--color-primary-fg);
+    }
+
+    @layer base {
+        :global(p.is-editor-empty:first-child::before) {
+            color: color-mix(in oklch, var(--color-base-fg) 40%, transparent);
+            content: attr(data-placeholder);
+            float: left;
+            height: 0;
+            pointer-events: none;
+        }
+    }
+</style>

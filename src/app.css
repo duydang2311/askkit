@@ -1,6 +1,7 @@
 @import 'tailwindcss';
 @import 'lib/stylesheets/c-label.css' layer(components);
 @import 'lib/stylesheets/c-button.css' layer(components);
+@import '@fontsource-variable/source-sans-3';
 
 @plugin '@tailwindcss/typography';
 @config '../tailwind.config.js';
@@ -27,8 +28,8 @@
     --color-primary-fg: oklch(100% 0.01 255.4);
 
     --default-font-family:
-        ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
-        'Segoe UI Symbol', 'Noto Color Emoji';
+        'Source Sans 3 Variable', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji',
+        'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
 }
 
 @layer base {
