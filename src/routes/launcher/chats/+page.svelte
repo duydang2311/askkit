@@ -34,7 +34,6 @@
     let editor = $state.raw<Editor>();
     let messagesContainerEl = $state.raw<HTMLElement>();
     let errors = new SvelteSet<string>();
-    let inputContainerEl = $state.raw<HTMLElement>();
 
     const chatMessagesQueryKey = $derived(['chat-messages', { chatId: persisted.chat?.id }]);
     const chatMessages = createQuery(
@@ -121,11 +120,11 @@
     };
 
     let caretEl = $state.raw<HTMLDivElement>();
+    let inputContainerEl = $state.raw<HTMLElement>();
     let caretLh = 0.85;
     let caretHeight: number | null = null;
     let springCaretWidth = new Spring(12, { damping: 0.6, stiffness: 0.3 });
     let blinkTimeout = 0;
-    const scrollEl = $derived(persisted.scrollEl);
     const springTop = new Spring(0, { damping: 0.6, stiffness: 0.25 });
     const springLeft = new Spring(0, { damping: 0.6, stiffness: 0.25 });
     const updateCaret = (editor: Editor, instant?: boolean) => {
@@ -139,7 +138,6 @@
         const fromCoords = editor.view.coordsAtPos(
             Math.min(from, editor.state.doc.content.size - 1)
         );
-        console.log(caretHeight, fromCoords, inputContainerEl?.offsetTop ?? 0);
         let top =
             fromCoords.top +
             (fromCoords.bottom - fromCoords.top - caretHeight) / 2 -
@@ -375,19 +373,14 @@
             },
         });
         currentEditor.commands.focus();
-        let off: (() => void) | undefined;
+        const off = on(currentEditor.view.dom, 'scroll', () => {
+            updateCaret(currentEditor, true);
+        });
         untrack(() => {
-            persisted.scrollEl = currentEditor.view.dom;
-            off = on(persisted.scrollEl, 'scroll', () => {
-                if (editor) {
-                    updateCaret(editor, true);
-                }
-            });
             editor = currentEditor;
         });
         return () => {
-            persisted.scrollEl = null;
-            off?.();
+            off();
             currentEditor.destroy();
         };
     }}
