@@ -1,7 +1,32 @@
-# Tauri + SvelteKit + TypeScript
+# Askkit
 
-This template should help get you started developing with Tauri, SvelteKit and TypeScript in Vite.
+A unified, local desktop AI chatbot that lives in your system tray, ready to launch instantly whenever you need assistance.
 
-## Recommended IDE Setup
+## Windows
 
-[VS Code](https://code.visualstudio.com/) + [Svelte](https://marketplace.visualstudio.com/items?itemName=svelte.svelte-vscode) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer).
+- [x] Quick chat launcher (`Win+/`)
+- [ ] Main application
+
+## Model Providers
+
+- [x] Google: Gemini.
+- [ ] Groq: Llama, GPT, etc.
+- [ ] OpenAI: GPT-5, GPT-4, gpt-oss, etc.
+
+## Tech Stacks
+
+**Frontend:**
+
+- Svelte & SvelteKit
+- TypeScript
+- Tailwind CSS
+- Vite
+
+**Backend:**
+
+- Rust
+- Sqlite
+
+**Desktop Integration:**
+
+- Tauri: currently Windows only.
