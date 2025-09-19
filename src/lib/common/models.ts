@@ -1,7 +1,7 @@
 export enum ChatMessageStatus {
     Pending = 'pending',
     Completed = 'completed',
-    Failed = 'failed'
+    Failed = 'failed',
 }
 
 export interface Chat {
@@ -21,7 +21,7 @@ export interface ChatMessage {
 
 export enum AgentProvider {
     Google = 'google',
-    OpenAI = 'open_ai',
+    Groq = 'groq',
 }
 
 export interface Agent {

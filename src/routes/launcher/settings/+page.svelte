@@ -1,31 +1,21 @@
 <script lang="ts">
     import { AgentProvider } from '$lib/common/models';
-    import { useAgents, useCurrentAgent } from '$lib/common/queries';
+    import { useAgents, useCurrentAgent, useCurrentAgentConfig } from '$lib/common/queries';
     import { useRuntime } from '$lib/common/runtime';
     import { button } from '$lib/common/styles';
     import { createPasswordInput, createSelect } from '$lib/components/builders.svelte';
-    import { Eye, EyeSlash } from '$lib/components/icons';
     import { attempt } from '@duydang2311/attempt';
-    import { createQuery } from '@tanstack/svelte-query';
     import { invoke } from '@tauri-apps/api/core';
     import { ListCollection } from '@zag-js/collection';
     import { portal } from '@zag-js/svelte';
-    import { toStore } from 'svelte/store';
+    import Google from './Google.svelte';
+    import Groq from './Groq.svelte';
 
     const { queryClient } = useRuntime();
 
     const agents = useAgents();
     const currentAgent = useCurrentAgent();
-    const agentConfig = createQuery(
-        toStore(() => ({
-            enabled: $currentAgent.data != null,
-            queryKey: ['agent-config', { id: $currentAgent.data?.id }],
-            queryFn: () =>
-                invoke<{ agent_id: string; api_key: string } | null>('get_agent_config', {
-                    id: $currentAgent.data!.id,
-                }),
-        }))
-    );
+    const agentConfig = useCurrentAgentConfig();
 
     const id = $props.id();
     const select = createSelect({
@@ -131,53 +121,9 @@
                 <div>
                     <h2 class="text-base-fg-muted mb-2 font-medium">Parameters</h2>
                     {#if item.provider === AgentProvider.Google}
-                        <div
-                            {...passwordInput.getRootProps()}
-                            class={[
-                                'border-base-border bg-base-light dark:bg-base-dark border px-2 py-1',
-                                'focus-within:ring-offset-base focus-within:ring-base-border focus-within:ring focus-within:ring-offset-2 focus-within:outline-none',
-                            ]}
-                        >
-                            <label {...passwordInput.getLabelProps()} class="c-label block">
-                                API key
-                            </label>
-                            <div {...passwordInput.getControlProps()} class="flex gap-2">
-                                <input
-                                    {...passwordInput.getInputProps()}
-                                    placeholder="Enter Gemini API key"
-                                    value={showApiKey
-                                        ? decryptedApiKey
-                                        : ($agentConfig.data?.api_key ?? undefined)}
-                                    class="placeholder:text-base-fg-muted w-full focus:outline-none"
-                                    onblur={async (e) => {
-                                        if (
-                                            e.currentTarget.value ===
-                                            ($agentConfig.data?.api_key ?? '')
-                                        ) {
-                                            return;
-                                        }
-                                        await invoke('upsert_agent_config', {
-                                            id: item.id,
-                                            upsert: {
-                                                api_key: e.currentTarget.value,
-                                            },
-                                        });
-                                        await queryClient.invalidateQueries({
-                                            queryKey: ['agent-config', { id: item.id }],
-                                        });
-                                    }}
-                                />
-                                <button {...passwordInput.getVisibilityTriggerProps()}>
-                                    <span {...passwordInput.getIndicatorProps()}>
-                                        {#if passwordInput.visible}
-                                            <Eye />
-                                        {:else}
-                                            <EyeSlash />
-                                        {/if}
-                                    </span>
-                                </button>
-                            </div>
-                        </div>
+                        <Google agent={item} />
+                    {:else if item.provider === AgentProvider.Groq}
+                        <Groq agent={item} />
                     {/if}
                 </div>
             {/if}

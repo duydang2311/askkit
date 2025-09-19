@@ -9,3 +9,4 @@ export const load: LayoutLoad = async () => {
     const theme = await getCurrentWebviewWindow().theme();
     return { queryClient: new QueryClient(), theme };
 };
+
