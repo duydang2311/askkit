@@ -65,7 +65,7 @@ pub async fn send_chat_message(
     static_chat_repo: tauri::State<'_, Arc<dyn ChatRepo>>,
 ) -> Result<(), AppError> {
     let unit_of_work = unit_of_work_factory.create().await?;
-    let (user_chat_msg, mut stream) = {
+    let (agent, user_chat_msg) = {
         let agent_repo = unit_of_work.agent_repo();
         let current_agent = agent_repo
             .get_current_agent()
@@ -88,15 +88,8 @@ pub async fn send_chat_message(
                 log::error!("failed to emit response chunk: {e}");
             });
 
-        let mut config = agent
-            .create_text_gen_params(agent_context.inner().clone(), chat_id)
-            .await?
-            .ok_or_else(|| AppError::AgentTextGenParamsRequired)?;
-        config.push_message_str(&content);
-        let stream = agent
-            .generate_text(agent_context.inner().clone(), config)
-            .await?;
-        (user_chat_msg, stream)
+        (agent, user_chat_msg)
+        // (user_chat_msg, stream)
     };
 
     let model_chat_msg = {
@@ -134,7 +127,16 @@ pub async fn send_chat_message(
         );
     })?;
     let chat_repo = static_chat_repo.inner().clone();
+    let agent_context = agent_context.inner().clone();
     tauri::async_runtime::spawn(async move {
+        let mut config = agent
+            .create_text_gen_params(agent_context.clone(), chat_id)
+            .await?
+            .ok_or_else(|| AppError::AgentTextGenParamsRequired)?;
+        config.push_message_str(&content);
+        let mut stream = agent
+            .generate_text(agent_context.clone(), config)
+            .await?;
         let mut text = String::new();
         let mut chunk_count = 0;
         while let Some(item) = stream.next().await {
@@ -185,7 +187,7 @@ pub async fn send_chat_message(
                         .inspect_err(|e| {
                             log::error!("failed to update chat message status and content: {e}");
                         });
-                    return;
+                    return Err(AppError::Unknown(Some(Box::new(err))));
                 }
             }
         }
@@ -217,6 +219,7 @@ pub async fn send_chat_message(
             .inspect_err(|e| {
                 log::error!("failed to emit chat_message_completed: {e}");
             });
+        Ok::<(), AppError>(())
     });
 
     Ok(())
