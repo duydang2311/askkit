@@ -12,7 +12,7 @@ A unified, local desktop AI chatbot that lives in your system tray, ready to lau
 ## Model Providers
 
 - [x] Google: Gemini.
-- [ ] Groq: Llama, GPT, etc.
+- [x] Groq: Llama, GPT, etc.
 - [ ] OpenAI: GPT-5, GPT-4, gpt-oss, etc.
 
 ## Tech Stacks
