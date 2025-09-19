@@ -21,7 +21,7 @@ pub enum AppError {
     HttpDecode(reqwest::Error),
     #[error("UTF8 parsing error")]
     Utf8(Utf8Error),
-    #[error("Json error")]
+    #[error("Json error: {0}")]
     Json(serde_json::Error),
     #[error("System time error")]
     SystemTime(SystemTimeError),
@@ -45,6 +45,8 @@ pub enum AppError {
     TransactionInUse,
     #[error("Base64 decode error")]
     DecodeBase64(base64::DecodeError),
+    #[error("IO error: {0}")]
+    Io(std::io::Error),
     #[error("Unknown error")]
     Unknown(Option<Box<dyn std::error::Error + Send + Sync>>),
 }
@@ -122,6 +124,12 @@ impl From<tokio::sync::TryLockError> for AppError {
 impl From<base64::DecodeError> for AppError {
     fn from(value: base64::DecodeError) -> Self {
         AppError::DecodeBase64(value)
+    }
+}
+
+impl From<std::io::Error> for AppError {
+    fn from(value: std::io::Error) -> Self {
+        AppError::Io(value)
     }
 }
 
@@ -237,6 +245,11 @@ impl Serialize for AppError {
             AppError::DecodeBase64(error) => {
                 state = serializer.serialize_struct("AppError", 2)?;
                 state.serialize_field("kind", "DecodeBase64Error")?;
+                state.serialize_field("message", &error.to_string())?;
+            }
+            AppError::Io(error) => {
+                state = serializer.serialize_struct("AppError", 2)?;
+                state.serialize_field("kind", "IoError")?;
                 state.serialize_field("message", &error.to_string())?;
             }
             AppError::Unknown(Some(error)) => {

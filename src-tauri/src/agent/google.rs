@@ -1,3 +1,5 @@
+use std::pin::Pin;
+
 use async_trait::async_trait;
 use futures_util::{self, stream, Stream, TryStreamExt};
 use serde::{Deserialize, Serialize};
@@ -69,7 +71,7 @@ impl AgentApi for GoogleAgent {
         self,
         context: AgentContext,
         params: Self::TextGenParams,
-    ) -> Result<impl Stream<Item = Result<AgentTextGenResult, AppError>>, AppError> {
+    ) -> Result<Pin<Box<dyn Stream<Item = Result<AgentTextGenResult, AppError>> + Send>>, AppError> {
         let client = context.http_client_manager.get_client();
         let body = GoogleTextGenRequestBody {
             contents: params
@@ -119,7 +121,7 @@ impl AgentApi for GoogleAgent {
                 stream::iter(results)
             })
             .try_flatten();
-        Ok(stream)
+        Ok(Box::pin(stream))
     }
 
     async fn create_text_gen_params(
@@ -155,14 +157,8 @@ impl AgentApi for GoogleAgent {
 }
 
 impl AgentTextGenParamsApi for GoogleTextGenParams {
-    type Message = GoogleTextGenParamsMessage;
-
-    fn push_message(&mut self, message: Self::Message) {
-        self.messages.push(message);
-    }
-
     fn push_message_str(&mut self, message: &str) {
-        self.messages.push(Self::Message {
+        self.messages.push(GoogleTextGenParamsMessage {
             role: "user".to_string(),
             content: message.to_string(),
         });

@@ -1,9 +1,11 @@
 mod agent;
 mod chat;
 mod cipher;
+mod codec;
 mod common;
 mod launcher;
 
+use const_hex::ToHexExt;
 use keyring::Entry;
 use rand::{rngs::OsRng, TryRngCore};
 use sqlx::{migrate::MigrateDatabase, sqlite::SqlitePoolOptions, Pool, Sqlite};
@@ -171,10 +173,16 @@ fn setup_dependencies(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
     let unit_of_work_factory: Arc<dyn UnitOfWorkFactory> =
         Arc::new(SqliteUnitOfWorkFactory::new(db_pool.clone()));
 
+    println!("uuid hex: {}", Uuid::new_v4().encode_hex());
+    println!("uuid hex: {}", Uuid::new_v4().encode_hex());
+    println!("uuid hex: {}", Uuid::new_v4().encode_hex());
+    println!("uuid hex: {}", Uuid::new_v4().encode_hex());
+    println!("uuid hex: {}", Uuid::new_v4().encode_hex());
+    println!("uuid hex: {}", Uuid::new_v4().encode_hex());
+    println!("uuid hex: {}", Uuid::new_v4().encode_hex());
+    println!("uuid hex: {}", Uuid::new_v4().encode_hex());
     tauri::async_runtime::block_on(async { sqlx::migrate!("./migrations").run(&*db_pool).await })
         .expect("failed to run migrations");
-
-    tauri::async_runtime::block_on(seed_data(db_pool.clone())).expect("failed to seed data");
 
     app.manage(AgentContext::new(
         http_client_manager.clone(),
@@ -223,29 +231,4 @@ fn handle_run_event(_app_handle: &AppHandle, event: RunEvent) {
             }
         }
     }
-}
-
-async fn seed_data(db_pool: Arc<Pool<Sqlite>>) -> Result<(), AppError> {
-    let mut tx = db_pool.begin().await.map_err(AppError::from)?;
-    let count = sqlx::query_scalar::<_, i64>("select count(*) from agents")
-        .fetch_one(&mut *tx)
-        .await
-        .map_err(AppError::from)?;
-    if count == 0 {
-        sqlx::query(
-            r#"
-            insert into agents (id, provider, model) values (?1, 'google', 'gemini-2.5-pro');
-            insert into agents (id, provider, model) values (?2, 'google', 'gemini-2.5-flash');
-            insert into agents (id, provider, model) values (?3, 'google', 'gemini-2.5-flash-lite');
-            "#,
-        )
-        .bind(Uuid::new_v4())
-        .bind(Uuid::new_v4())
-        .bind(Uuid::new_v4())
-        .execute(&mut *tx)
-        .await
-        .map_err(AppError::from)?;
-    }
-    tx.commit().await.map_err(AppError::from)?;
-    Ok(())
 }

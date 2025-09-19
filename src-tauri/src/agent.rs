@@ -1,8 +1,9 @@
 pub mod cmds;
 pub mod google;
+pub mod groq;
 pub mod repo;
 
-use std::sync::Arc;
+use std::{pin::Pin, sync::Arc};
 
 use async_trait::async_trait;
 use futures_util::Stream;
@@ -11,7 +12,8 @@ use uuid::Uuid;
 
 use crate::{
     agent::{
-        google::{GoogleAgent, GoogleTextGenParams, GoogleTextGenParamsMessage},
+        google::{GoogleAgent, GoogleTextGenParams},
+        groq::{GroqAgent, GroqTextGenParams},
         repo::AgentRepo,
     },
     chat::repo::ChatRepo,
@@ -24,25 +26,20 @@ use crate::{
 #[serde(rename_all = "snake_case")]
 pub enum AgentProvider {
     Google,
-    OpenAI,
+    Groq,
 }
 
 pub enum Agent {
     Gemini(GoogleAgent),
+    Groq(GroqAgent),
 }
 
 pub enum AgentTextGenParams {
     Google(GoogleTextGenParams),
-}
-
-pub enum AgentTextGenParamsMessage {
-    Google(GoogleTextGenParamsMessage),
+    Groq(GroqTextGenParams),
 }
 
 pub trait AgentTextGenParamsApi {
-    type Message;
-
-    fn push_message(&mut self, message: Self::Message);
     fn push_message_str(&mut self, message: &str);
 }
 
@@ -54,7 +51,7 @@ pub trait AgentApi {
         self,
         context: AgentContext,
         params: Self::TextGenParams,
-    ) -> Result<impl Stream<Item = Result<AgentTextGenResult, AppError>>, AppError>;
+    ) -> Result<Pin<Box<dyn Stream<Item = Result<AgentTextGenResult, AppError>> + Send>>, AppError>;
 
     async fn create_text_gen_params(
         &self,
@@ -109,7 +106,10 @@ impl From<AgentRow> for Agent {
                 id: row.id,
                 model: row.model,
             }),
-            AgentProvider::OpenAI => todo!("Implement OpenAI agent"),
+            AgentProvider::Groq => Self::Groq(GroqAgent {
+                id: row.id,
+                model: row.model,
+            }),
         }
     }
 }
@@ -122,11 +122,16 @@ impl AgentApi for Agent {
         self,
         context: AgentContext,
         params: Self::TextGenParams,
-    ) -> Result<impl Stream<Item = Result<AgentTextGenResult, AppError>>, AppError> {
+    ) -> Result<Pin<Box<dyn Stream<Item = Result<AgentTextGenResult, AppError>> + Send>>, AppError>
+    {
         match (self, params) {
             (Agent::Gemini(agent), AgentTextGenParams::Google(params)) => {
                 agent.generate_text(context, params).await
             }
+            (Agent::Groq(agent), AgentTextGenParams::Groq(params)) => {
+                agent.generate_text(context, params).await
+            }
+            _ => todo!(),
         }
     }
 
@@ -140,24 +145,21 @@ impl AgentApi for Agent {
                 .create_text_gen_params(context, chat_id)
                 .await
                 .map(|a| a.map(|a| AgentTextGenParams::Google(a))),
+            Agent::Groq(agent) => agent
+                .create_text_gen_params(context, chat_id)
+                .await
+                .map(|a| a.map(|a| AgentTextGenParams::Groq(a))),
         }
     }
 }
 
 impl AgentTextGenParamsApi for AgentTextGenParams {
-    type Message = AgentTextGenParamsMessage;
-
-    fn push_message(&mut self, message: Self::Message) {
-        match (self, message) {
-            (AgentTextGenParams::Google(params), AgentTextGenParamsMessage::Google(message)) => {
-                params.push_message(message);
-            }
-        }
-    }
-
     fn push_message_str(&mut self, message: &str) {
         match self {
             AgentTextGenParams::Google(params) => {
+                params.push_message_str(message);
+            }
+            AgentTextGenParams::Groq(params) => {
                 params.push_message_str(message);
             }
         }
