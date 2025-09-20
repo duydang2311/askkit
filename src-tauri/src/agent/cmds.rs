@@ -1,5 +1,5 @@
-use std::sync::Arc;
 use serde::Deserialize;
+use std::sync::Arc;
 use tauri::State;
 use uuid::Uuid;
 
@@ -61,10 +61,17 @@ pub async fn upsert_agent_config(
         .upsert_agent_config(
             id,
             UpsertAgentConfig {
-                api_key: match upsert.api_key {
-                    Some(api_key) => Some(cipher.encrypt_str_base64(&api_key)?),
-                    None => None,
-                },
+                api_key: upsert
+                    .api_key
+                    .map(|a| {
+                        let trimmed = a.trim();
+                        if trimmed.is_empty() {
+                            Ok(String::new())
+                        } else {
+                            cipher.encrypt_str_base64(trimmed)
+                        }
+                    })
+                    .transpose()?,
             },
         )
         .await

@@ -372,10 +372,13 @@ where
     E: Executor<'a, Database = Sqlite>,
 {
     let mut qb = sqlx::QueryBuilder::new("insert into agent_configs (");
+    let api_key = update
+        .api_key
+        .map(|a| if a.len() > 0 { Some(a) } else { None });
     {
         let mut fields = qb.separated(", ");
         fields.push("agent_id");
-        if let Some(_) = update.api_key {
+        if let Some(_) = &api_key {
             fields.push("api_key");
         }
     }
@@ -384,7 +387,7 @@ where
         qb.push(") values (");
         let mut values = qb.separated(", ");
         values.push_bind(&agent_id);
-        if let Some(api_key) = &update.api_key {
+        if let Some(api_key) = &api_key {
             values.push_bind(api_key);
         }
     }
@@ -392,7 +395,7 @@ where
     {
         qb.push(") on conflict (agent_id) do update set ");
         let mut updates = qb.separated(", ");
-        if let Some(_) = &update.api_key {
+        if api_key.is_some() {
             updates.push("api_key = excluded.api_key");
         }
     }

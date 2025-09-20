@@ -8,7 +8,7 @@ mod launcher;
 use const_hex::ToHexExt;
 use keyring::Entry;
 use rand::{rngs::OsRng, TryRngCore};
-use sqlx::{migrate::MigrateDatabase, sqlite::SqlitePoolOptions, Pool, Sqlite};
+use sqlx::{migrate::MigrateDatabase, sqlite::SqlitePoolOptions, Sqlite};
 use std::{panic, sync::Arc};
 use tauri::{
     generate_handler,
@@ -26,7 +26,6 @@ use crate::{
     chat::repo::{sqlite::SqliteChatRepo, ChatRepo},
     cipher::{Cipher, KeyringAesGcmCipher},
     common::{
-        error::AppError,
         http::HttpClientManager,
         unit_of_work::{SqliteUnitOfWorkFactory, UnitOfWorkFactory},
     },
@@ -173,14 +172,6 @@ fn setup_dependencies(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
     let unit_of_work_factory: Arc<dyn UnitOfWorkFactory> =
         Arc::new(SqliteUnitOfWorkFactory::new(db_pool.clone()));
 
-    println!("uuid hex: {}", Uuid::new_v4().encode_hex());
-    println!("uuid hex: {}", Uuid::new_v4().encode_hex());
-    println!("uuid hex: {}", Uuid::new_v4().encode_hex());
-    println!("uuid hex: {}", Uuid::new_v4().encode_hex());
-    println!("uuid hex: {}", Uuid::new_v4().encode_hex());
-    println!("uuid hex: {}", Uuid::new_v4().encode_hex());
-    println!("uuid hex: {}", Uuid::new_v4().encode_hex());
-    println!("uuid hex: {}", Uuid::new_v4().encode_hex());
     tauri::async_runtime::block_on(async { sqlx::migrate!("./migrations").run(&*db_pool).await })
         .expect("failed to run migrations");
 

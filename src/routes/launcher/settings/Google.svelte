@@ -7,13 +7,12 @@
     import { attempt } from '@duydang2311/attempt';
     import { invoke } from '@tauri-apps/api/core';
 
-    const { agent }: { agent: Agent } = $props();
+    let { agent, showApiKey = $bindable() }: { agent: Agent; showApiKey: boolean } = $props();
 
     const { queryClient } = useRuntime();
     const agentConfig = useCurrentAgentConfig();
     const id = $props.id();
 
-    let showApiKey = $state.raw(false);
     let decryptedApiKey = $state.raw<string | null>(null);
     const passwordInput = createPasswordInput({
         id,

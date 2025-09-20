@@ -1,10 +1,9 @@
 <script lang="ts">
     import { AgentProvider } from '$lib/common/models';
-    import { useAgents, useCurrentAgent, useCurrentAgentConfig } from '$lib/common/queries';
+    import { useAgents, useCurrentAgent } from '$lib/common/queries';
     import { useRuntime } from '$lib/common/runtime';
     import { button } from '$lib/common/styles';
-    import { createPasswordInput, createSelect } from '$lib/components/builders.svelte';
-    import { attempt } from '@duydang2311/attempt';
+    import { createSelect } from '$lib/components/builders.svelte';
     import { invoke } from '@tauri-apps/api/core';
     import { ListCollection } from '@zag-js/collection';
     import { portal } from '@zag-js/svelte';
@@ -15,7 +14,6 @@
 
     const agents = useAgents();
     const currentAgent = useCurrentAgent();
-    const agentConfig = useCurrentAgentConfig();
 
     const id = $props.id();
     const select = createSelect({
@@ -38,31 +36,6 @@
     });
 
     let showApiKey = $state.raw(false);
-    let decryptedApiKey = $state.raw<string | null>(null);
-    const passwordInput = createPasswordInput({
-        id: id + '-password-input',
-        get visible() {
-            return showApiKey;
-        },
-        onVisibilityChange: async (details) => {
-            let decryptedStr: string | null = null;
-            if (details.visible) {
-                const ciphertext = $agentConfig.data?.api_key;
-                if (ciphertext) {
-                    const decrypted = await attempt.async(() =>
-                        invoke<string>('decrypt_agent_ciphertext', {
-                            ciphertext,
-                        })
-                    )(console.error);
-                    if (decrypted.ok) {
-                        decryptedStr = decrypted.data;
-                    }
-                }
-            }
-            decryptedApiKey = decryptedStr;
-            showApiKey = details.visible;
-        },
-    });
 </script>
 
 <div class="px-6 py-4">
@@ -121,9 +94,9 @@
                 <div>
                     <h2 class="text-base-fg-muted mb-2 font-medium">Parameters</h2>
                     {#if item.provider === AgentProvider.Google}
-                        <Google agent={item} />
+                        <Google agent={item} bind:showApiKey />
                     {:else if item.provider === AgentProvider.Groq}
-                        <Groq agent={item} />
+                        <Groq agent={item} bind:showApiKey />
                     {/if}
                 </div>
             {/if}
