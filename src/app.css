@@ -18,9 +18,9 @@
     --color-base-fg-light: oklch(27% 0.0038 164.54);
     --color-base-fg-dark: oklch(7% 0.0038 164.54);
     --color-base-fg-muted: oklch(57% 0.0038 164.54);
-    --color-base-border: oklch(92% 0 116.2);
-    --color-base-border-light: oklch(94% 0 116.2);
-    --color-base-border-dark: oklch(88% 0 116.2);
+    --color-base-border: oklch(94% 0 116.2);
+    --color-base-border-light: oklch(96% 0 116.2);
+    --color-base-border-dark: oklch(90% 0 116.2);
 
     --color-primary: oklch(52.36% 0.1748 255.4);
     --color-primary-hover: oklch(48.36% 0.1748 255.4);
@@ -36,18 +36,22 @@
     :root {
         @variant dark {
             --color-base: oklch(21% 0 116.2);
-            --color-base-light: oklch(23% 0 116.2);
-            --color-base-dark: oklch(19% 0 116.2);
-            --color-base-hover: oklch(25% 0 116.2);
+            --color-base-light: oklch(24% 0 116.2);
+            --color-base-dark: oklch(20% 0 116.2);
+            --color-base-hover: oklch(28% 0 116.2);
+            --color-base-active: oklch(21% 0 116.2);
             --color-base-fg: oklch(100% 0 116.2);
             --color-base-fg-light: oklch(100% 0 116.2);
             --color-base-fg-dark: oklch(90% 0 116.2);
             --color-base-fg-muted: oklch(60% 0 116.2);
-            --color-base-border: oklch(30% 0 116.2);
+            --color-base-border: oklch(28% 0 116.2);
             --color-base-border-light: oklch(32% 0 116.2);
-            --color-base-border-dark: oklch(28% 0 116.2);
+            --color-base-border-dark: oklch(24% 0 116.2);
 
             --color-primary: oklch(64.94% 0.1928 251.89);
+            --color-primary-hover: oklch(60.94% 0.1928 251.89);
+            --color-primary-active: oklch(56.94% 0.1928 251.89);
+            --color-primary-fg: oklch(21% 0 116.2);
         }
     }
 }
