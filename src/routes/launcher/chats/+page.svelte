@@ -138,6 +138,7 @@
         const fromCoords = editor.view.coordsAtPos(
             Math.min(from, editor.state.doc.content.size - 1)
         );
+        console.log('fromCoords', fromCoords);;
         let top =
             fromCoords.top +
             (fromCoords.bottom - fromCoords.top - caretHeight) / 2 -
@@ -277,7 +278,6 @@
                 await queryClient.cancelQueries({ queryKey: chatMessagesQueryKey });
             }
             queryClient.setQueryData<ChatMessage[]>(chatMessagesQueryKey, (messages) => {
-                console.log(messages);
                 return messages?.map((m) =>
                     m.id === e.payload.messageId ? { ...m, status: e.payload.status } : m
                 );
