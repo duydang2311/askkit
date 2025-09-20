@@ -41,7 +41,7 @@
     <div use:portal {...select.getPositionerProps()}>
         <ul
             {...select.getContentProps()}
-            class="bg-base-light dark:bg-base-dark border-base-border w-(--reference-width) min-w-max border p-1 text-xs focus:outline-none"
+            class="bg-base-light dark:bg-base-dark border-base-border max-h-(--available-height) w-(--reference-width) min-w-max overflow-auto border p-1 text-xs focus:outline-none"
         >
             {#each $agents.data ?? [] as item (item.id)}
                 <li
