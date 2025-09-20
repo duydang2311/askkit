@@ -34,6 +34,10 @@
             await queryClient.invalidateQueries({ queryKey: ['current-agent'] });
         },
     });
+    const parametersComponents = {
+        [AgentProvider.Google]: Google,
+        [AgentProvider.Groq]: Groq,
+    } as const;
 
     let showApiKey = $state.raw(false);
 </script>
@@ -91,13 +95,10 @@
         {#if select.hasSelectedItems}
             {@const item = select.selectedItems[0]}
             {#if item}
+                {@const Parameters = parametersComponents[item.provider]}
                 <div>
                     <h2 class="text-base-fg-muted mb-2 font-medium">Parameters</h2>
-                    {#if item.provider === AgentProvider.Google}
-                        <Google agent={item} bind:showApiKey />
-                    {:else if item.provider === AgentProvider.Groq}
-                        <Groq agent={item} bind:showApiKey />
-                    {/if}
+                    <Parameters agent={item} bind:showApiKey />
                 </div>
             {/if}
         {/if}
