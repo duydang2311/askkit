@@ -1,4 +1,4 @@
-<!--  --><script lang="ts">
+<script lang="ts">
     import { ChatMessageStatus, type ChatMessage } from '$lib/common/models';
     import { useCurrentAgent } from '$lib/common/queries';
     import { useRuntime } from '$lib/common/runtime';
