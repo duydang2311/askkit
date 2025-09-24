@@ -1,4 +1,4 @@
-<script lang="ts">
+<!--  --><script lang="ts">
     import { ChatMessageStatus, type ChatMessage } from '$lib/common/models';
     import { useCurrentAgent } from '$lib/common/queries';
     import { useRuntime } from '$lib/common/runtime';
@@ -51,6 +51,14 @@
             return;
         }
 
+        marked.use({
+            renderer: {
+                link(link) {
+                    const token = this.parser.parseInline(link.tokens);
+                    return `<a href="${link.href}" target="_blank" rel="noopener noreferrer">${token}</a>`;
+                },
+            },
+        });
         persisted.chat.messages =
             $chatMessages.data == null
                 ? []
@@ -61,8 +69,10 @@
                               ...a,
                               html:
                                   html instanceof Promise
-                                      ? await html.then(DOMPurify.sanitize)
-                                      : DOMPurify.sanitize(html),
+                                      ? await html.then((a) =>
+                                            DOMPurify.sanitize(a, { ADD_ATTR: ['target'] })
+                                        )
+                                      : DOMPurify.sanitize(html, { ADD_ATTR: ['target'] }),
                           };
                       })
                   );
@@ -138,7 +148,7 @@
         const fromCoords = editor.view.coordsAtPos(
             Math.min(from, editor.state.doc.content.size - 1)
         );
-        console.log('fromCoords', fromCoords);;
+        console.log('fromCoords', fromCoords);
         let top =
             fromCoords.top +
             (fromCoords.bottom - fromCoords.top - caretHeight) / 2 -
